@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+  <title>iPad2Spotify</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">♫</span><span>iPad2Spotify</span></div>
+      <div class="connection"><span id="status-dot" class="status-dot"></span><span id="connection-label">Not connected</span><button id="settings-button" class="text-button">Settings</button></div>
+    </header>
+
+    <section id="setup-view" class="setup-card">
+      <div class="setup-copy">
+        <p class="eyebrow">A calm second screen for Spotify</p>
+        <h1>Put the music<br><em>in view.</em></h1>
+        <p class="intro">A lightweight now-playing display made for an iPad 2. Your iPad shows what is playing elsewhere; Spotify stays on your phone, computer, or speaker.</p>
+      </div>
+      <div class="setup-form">
+        <label for="client-id">Spotify Client ID</label>
+        <input id="client-id" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Paste your Spotify Client ID">
+        <p class="hint">Create an app at <strong>developer.spotify.com/dashboard</strong>, then add this page's exact URL as a Redirect URI.</p>
+        <button id="connect-button" class="primary-button">Connect to Spotify <span>→</span></button>
+        <p id="setup-error" class="error" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section id="player-view" class="player-view hidden">
+      <div class="art-column"><div class="art-frame"><img id="album-art" src="" alt="Album artwork"><div id="art-placeholder" class="art-placeholder">♫</div></div><p id="device-name" class="device-name">Waiting for playback</p></div>
+      <div class="track-column">
+        <p class="eyebrow" id="playing-label">CURRENTLY PLAYING</p>
+        <h2 id="track-name">Nothing playing</h2><p id="artist-name" class="artist-name">Start Spotify on another device</p><p id="album-name" class="album-name"></p>
+        <div class="progress-wrap"><div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div><div class="time-row"><span id="elapsed">0:00</span><span id="duration">0:00</span></div></div>
+        <div class="controls"><button id="previous-button" class="round-button" aria-label="Previous track">|◀</button><button id="play-button" class="play-button" aria-label="Play or pause">▶</button><button id="next-button" class="round-button" aria-label="Next track">▶|</button></div>
+        <div class="volume-row"><span class="volume-icon">−</span><input id="volume-slider" type="range" min="0" max="100" value="50"><span class="volume-icon">+</span></div>
+        <p id="player-message" class="player-message">Connect to see playback.</p>
+      </div>
+    </section>
+
+    <footer class="footer"><span>Designed for iPad 2 · iOS 9.3.6 · Safari</span><button id="disconnect-button" class="text-button">Disconnect</button></footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
