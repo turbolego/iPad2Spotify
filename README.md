@@ -1,66 +1,237 @@
 # iPad2Spotify
 
-A Spotify currently-playing dashboard designed for an iPad 2 running Safari/iOS 9.3.6. The frontend uses ES5 JavaScript and `XMLHttpRequest`; Spotify credentials and tokens are handled by Vercel Functions instead of the browser.
+A Spotify currently-playing dashboard designed for an iPad 2 running Safari/iOS 9.3.6. It shows album artwork, track information, playback state, and playback controls while Spotify plays on another device.
 
-## User flow
+The frontend uses old-browser-compatible ES5 JavaScript and `XMLHttpRequest`. Spotify credentials and tokens are handled by Vercel Functions, not by the iPad browser.
 
-1. Open the Vercel URL in normal Safari and tap **Login to Spotify and get pairing code**.
-2. Complete Spotify authorization. Safari shows a short-lived pairing code.
-3. Open the iPad2Spotify icon from the Home Screen and tap **Enter pairing code**.
-4. Enter the code. The fullscreen app receives an HttpOnly session cookie and displays playback.
+## What this project solves
 
-The pairing code expires after ten minutes and is deleted after it is claimed. The Home Screen app never needs to open Spotify login again unless its session expires.
+An iPad 2 Home Screen web app runs in fullscreen mode, but interactive Spotify OAuth may open normal Safari. This project uses a two-step flow:
 
-## Vercel environment variables
+1. Open the deployed app in normal Safari on any device and select **Login to Spotify and get pairing code**.
+2. Complete Spotify authorization. The callback displays a short-lived pairing code.
+3. Open the deployed app from the iPad Home Screen.
+4. Select **Enter pairing code** and enter the code.
+5. The fullscreen app receives its own secure session and displays playback.
 
-Configure these variables in the Vercel project for Production:
+The pairing code expires after ten minutes and is deleted after it is claimed. The Home Screen app does not need to open Spotify login again unless its session expires.
+
+## Fork and deploy your own copy
+
+### 1. Fork this repository
+
+Open [github.com/turbolego/iPad2Spotify](https://github.com/turbolego/iPad2Spotify) and select **Fork**. Choose your own GitHub account or organization and create the fork.
+
+You can also clone the fork locally if you want to make changes:
+
+```bash
+git clone https://github.com/YOUR-GITHUB-USERNAME/iPad2Spotify.git
+```
+
+No build step or package installation is required.
+
+### 2. Create a Spotify Developer app
+
+Sign in to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) with the Spotify account whose playback should be displayed.
+
+Select **Create app** and enter an app name and description. After creation:
+
+1. Copy the **Client ID**.
+2. Reveal and copy the **Client Secret**.
+3. Keep the Client Secret private.
+
+Do not commit the Client Secret to GitHub or place it in `index.html`, `app.js`, a URL, or any browser-visible file.
+
+Spotify documentation: [Apps](https://developer.spotify.com/documentation/web-api/concepts/apps)
+
+### 3. Import the fork into Vercel
+
+Open the [Vercel Dashboard](https://vercel.com/dashboard):
+
+1. Select **Add New → Project**.
+2. Find your fork of `iPad2Spotify`.
+3. Select **Import**.
+4. Use the repository root as the Root Directory.
+5. Choose **Other** as the Framework Preset, or leave automatic detection enabled.
+6. Leave Build Command, Install Command, and Output Directory empty.
+7. Select **Deploy**.
+
+Vercel automatically exposes files under `api/` as serverless functions. The project is a plain static frontend plus Vercel Functions and needs no build command.
+
+Copy the production URL, for example:
 
 ```text
-SPOTIFY_CLIENT_ID
-SPOTIFY_CLIENT_SECRET
+https://your-project.vercel.app
+```
+
+### 4. Create the Redis/KV storage
+
+The pairing flow needs a small shared database because Spotify login happens in normal Safari while the pairing code is entered in the separate fullscreen Home Screen app.
+
+In the Vercel project:
+
+1. Open the **Storage** tab.
+2. Select **Create Database** or **Connect Store**.
+3. Choose the available **Upstash Redis** integration.
+4. Create a database and connect it to this Vercel project.
+5. Select the **Production** environment.
+
+The integration should add these variables to the project:
+
+```text
 KV_REST_API_URL
 KV_REST_API_TOKEN
 ```
 
-`SPOTIFY_CLIENT_SECRET` and the KV token are server-only variables. Do not prefix them with `NEXT_PUBLIC_` and do not put them in frontend files. `KV_REST_API_URL` and `KV_REST_API_TOKEN` are supplied by a Vercel KV/Upstash Redis integration. KV is required because Vercel Functions are stateless; it stores the expiring pairing transaction and the server-side session record.
+The current implementation uses the normal read/write token. Do not use `KV_REST_API_READ_ONLY_TOKEN` for `KV_REST_API_TOKEN`, because the application must create, read, and delete pairing/session records.
 
-Optionally set:
+If the integration provides equivalent variables with different names, add aliases in Vercel:
 
 ```text
-APP_ORIGIN=https://your-project.vercel.app
+KV_REST_API_URL   = your Redis REST URL
+KV_REST_API_TOKEN = your Redis REST read/write token
 ```
 
-If omitted, the callback derives the origin from the request host. Use `APP_ORIGIN` when a custom domain is attached.
+Upstash’s Vercel integration is documented at [Upstash for Vercel](https://vercel.com/marketplace/upstash).
 
-## Spotify Developer Dashboard
+### 5. Add Vercel environment variables
 
-Add this exact Production Redirect URI to the Spotify app:
+Open:
+
+```text
+Vercel project → Settings → Environment Variables
+```
+
+Add these variables for **Production**:
+
+```text
+SPOTIFY_CLIENT_ID       = Client ID copied from Spotify
+SPOTIFY_CLIENT_SECRET   = Client Secret copied from Spotify
+KV_REST_API_URL         = supplied by Upstash Redis
+KV_REST_API_TOKEN       = supplied by Upstash Redis
+```
+
+Optionally add:
+
+```text
+APP_ORIGIN = https://your-project.vercel.app
+```
+
+`APP_ORIGIN` is useful when using a custom domain. Do not include a trailing slash. If it is omitted, the application derives the origin from the incoming request host.
+
+Vercel environment variables are encrypted at rest and are available to server-side Functions. Do not prefix private variables with `NEXT_PUBLIC_`.
+
+Vercel documentation: [Environment Variables](https://vercel.com/docs/environment-variables)
+
+### 6. Add the Spotify Redirect URI
+
+Using the production URL from Vercel, construct:
 
 ```text
 https://your-project.vercel.app/api/auth/callback
 ```
 
-The value must exactly match the URL generated by the deployment, including protocol, hostname, path, and trailing slash behavior. The requested scopes are `user-read-currently-playing`, `user-read-playback-state`, and `user-modify-playback-state`.
+In the Spotify Developer Dashboard:
 
-## Deploy
+1. Open your Spotify app.
+2. Select **Edit Settings**.
+3. Find **Redirect URIs**.
+4. Add the exact callback URL.
+5. Select **Add** if required.
+6. Select **Save**.
 
-Import `turbolego/iPad2Spotify` into Vercel, choose the project root as the repository root, add the environment variables, and deploy. Vercel automatically exposes files under `api/` as serverless functions. No build command is required.
+The redirect URI must match exactly, including:
 
-The relevant endpoints are:
+- `https` rather than `http`,
+- the Vercel hostname,
+- `/api/auth/callback`,
+- capitalization,
+- trailing slash behavior.
+
+For example, these are different values:
+
+```text
+https://your-project.vercel.app/api/auth/callback
+https://your-project.vercel.app/api/auth/callback/
+```
+
+Spotify documentation: [Redirect URIs](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri)
+
+### 7. Redeploy after configuring variables
+
+Environment-variable changes apply only to new deployments. In Vercel, open **Deployments**, select the latest deployment’s menu, and choose **Redeploy**.
+
+Alternatively, push a new commit to the production branch of your fork.
+
+### 8. Test login and pairing
+
+Open the Vercel production URL in normal Safari or another browser and select:
+
+```text
+Login to Spotify and get pairing code
+```
+
+Authorize the requested scopes:
+
+- `user-read-currently-playing`
+- `user-read-playback-state`
+- `user-modify-playback-state`
+
+After authorization, the callback page displays a pairing code. Open the same Vercel URL in Safari on the iPad, select **Add to Home Screen**, and open the new icon. In the fullscreen app select **Enter pairing code**, enter the code, and confirm.
+
+You can also complete the login on a phone or computer, then enter the resulting code on the iPad.
+
+## Features
+
+The dashboard provides:
+
+- current album artwork,
+- track title,
+- artist and album,
+- current playback state,
+- play/pause,
+- previous track,
+- next track,
+- automatic polling approximately every five seconds.
+
+Playback controls generally require a Spotify Premium account and an active controllable Spotify device. The dashboard does not play audio itself.
+
+## Vercel endpoints
 
 - `/api/auth/login` — starts Spotify authorization
 - `/api/auth/callback` — exchanges the authorization code and creates a pairing code
 - `/api/auth/pair` — claims a one-time pairing code
-- `/api/spotify/currently-playing` — server-side playback proxy
-- `/api/spotify/command` — allowlisted play, pause, next, and previous controls
+- `/api/spotify/currently-playing` — returns the authenticated account’s playback state
+- `/api/spotify/command` — allowlisted play, pause, next, and previous commands
 
-## Security notes
+## Security
 
-The deployment is intended for one private display. Anyone who can use the pairing flow can authorize their own Spotify account, so protect the Vercel project URL if it is not meant to be public. Tokens are never returned to the frontend, placed in URLs, or committed to Git. Pairing and session records are stored with expirations in KV and the browser session is an HttpOnly, Secure cookie.
+The Client Secret, Spotify refresh token, access tokens, and Redis token remain server-side. They are never returned to the frontend, placed in URLs, or committed to Git.
+
+Pairing records expire after ten minutes and are deleted after successful use. Sessions are stored server-side with expiration and represented in the browser by an HttpOnly, Secure cookie.
+
+This project is intended for a private personal display. Anyone who can access the login flow can authorize an account, so do not distribute your Vercel URL publicly if that is not desired.
+
+## iPad 2 compatibility
+
+The frontend intentionally avoids:
+
+- `fetch`,
+- ES modules,
+- promises,
+- `async`/`await`,
+- `let` and `const`,
+- service workers,
+- Web Crypto requirements,
+- modern build-tool dependencies.
+
+It uses ES5 JavaScript, `XMLHttpRequest`, old Safari-safe markup, and iOS Home Screen metadata. Vercel Functions run server-side and are independent of the iPad’s old JavaScript engine.
 
 ## Limitations
 
-Vercel cannot force an iOS 9 standalone Home Screen app to keep Spotify’s interactive login inside the fullscreen window. The design deliberately performs login in normal Safari first, then transfers authentication using the pairing code. GitHub Pages alone cannot provide the required server-side secret handling or persistent pairing storage.
+Vercel cannot force interactive Spotify login to remain inside an iOS 9 standalone Home Screen window. The pairing flow is intentional: login takes place in normal Safari or another browser, and the authenticated session is then transferred to the fullscreen app using a one-time code.
+
+GitHub Pages alone cannot safely store the Spotify Client Secret or maintain the shared pairing/session state required by this flow.
 
 ## License
 
