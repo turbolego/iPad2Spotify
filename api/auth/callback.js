@@ -8,7 +8,7 @@ module.exports = function (req, res) {
     var pair = lib.random(6).replace(/[-_]/g, '').toUpperCase().slice(0, 8);
     var record = { refresh_token: data.refresh_token, created: new Date().getTime(), expires: new Date().getTime() + 600000 };
     lib.kvSet('pair:' + pair, record, 600, function (kvErr) {
-      if (kvErr) return lib.json(res, 503, { error: 'Pairing storage is not configured. Add Vercel KV/Upstash variables.' });
+      if (kvErr) return lib.json(res, 503, { error: kvErr.message || 'Pairing storage failed. Check the Vercel KV/Upstash variables and redeploy.' });
       lib.clearCookie(res, 'spotify_oauth_state');
       res.statusCode = 200; res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.end('<!doctype html><meta name="viewport" content="width=device-width"><title>Spotify pairing code</title><style>body{font-family:Arial;background:#101211;color:#f5f1e8;text-align:center;padding:12vh 20px}h1{font-size:24px;font-weight:normal}strong{display:block;color:#b6d64b;font-size:52px;letter-spacing:.15em;margin:35px 0}p{color:#b8c4b6;line-height:1.6}</style><h1>Spotify login complete</h1><strong>' + pair + '</strong><p>Open the iPad2Spotify Home Screen app and enter this code.<br>This code expires in 10 minutes and can be used once.</p>');
