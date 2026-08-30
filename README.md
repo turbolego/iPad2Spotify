@@ -194,6 +194,8 @@ The dashboard provides:
 - next track,
 - automatic polling approximately every five seconds.
 
+The regular player also has a **Minimalist View** button. Minimalist View centers the album cover on the screen and places the artist and song name directly below it, hiding the other controls and interface elements. Tap the album cover to open the **Exit minimalist view?** confirmation. Select **yes** to return to the regular player or **no** to continue viewing the minimalist display.
+
 Playback controls generally require a Spotify Premium account and an active controllable Spotify device. The dashboard does not play audio itself.
 
 ## Vercel endpoints
