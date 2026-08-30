@@ -4,6 +4,9 @@ A Spotify currently-playing dashboard designed for an iPad 2 running Safari/iOS 
 
 The frontend uses old-browser-compatible ES5 JavaScript and `XMLHttpRequest`. Spotify credentials and tokens are handled by Vercel Functions, not by the iPad browser.
 
+<img width="2048" height="1536" alt="16575086-a7c7-4d9c-8d69-fe333fd9baf2" src="https://github.com/user-attachments/assets/be86356a-907a-4f3b-b0cd-2bd4d81a1b36" />
+
+
 ## What this project solves
 
 An iPad 2 Home Screen web app runs in fullscreen mode, but interactive Spotify OAuth may open normal Safari. This project uses a two-step flow:
