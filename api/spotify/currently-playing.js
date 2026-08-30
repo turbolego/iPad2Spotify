@@ -14,7 +14,11 @@ module.exports = function (req, res) {
         if (apiErr) return lib.json(res, 502, { error: 'Spotify request failed.' });
         if (status === 204) return lib.json(res, 200, { item: null, is_playing: false });
         if (status !== 200) return lib.json(res, status, data || { error: 'Spotify request failed.' });
-        lib.json(res, 200, data);
+        var item = data.item || {}, artists = (item.artists || []).map(function (artist) { return artist.name; });
+        lib.kvSet('last:' + sid, { track_id: item.id, track_name: item.name, artist_name: artists.join(', '), album_name: item.album && item.album.name, album_image_url: item.album && item.album.images && item.album.images.length ? item.album.images[0].url : '', spotify_url: item.external_urls && item.external_urls.spotify, updated_at: new Date().toISOString() }, 2592000, function (saveErr) {
+          if (saveErr) return lib.json(res, 503, { error: 'Could not save last-played track.' });
+          lib.json(res, 200, data);
+        });
       });
     });
   });

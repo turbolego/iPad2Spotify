@@ -86,7 +86,7 @@ KV_REST_API_URL
 KV_REST_API_TOKEN
 ```
 
-The current implementation uses the normal read/write token. Do not use `KV_REST_API_READ_ONLY_TOKEN` for `KV_REST_API_TOKEN`, because the application must create, read, and delete pairing/session records.
+The current implementation uses the normal read/write token. Do not use `KV_REST_API_READ_ONLY_TOKEN` for `KV_REST_API_TOKEN`, because the application must create, read, and delete pairing/session/badge records.
 
 If the integration provides equivalent variables with different names, add aliases in Vercel:
 
@@ -122,7 +122,7 @@ APP_ORIGIN = https://your-project.vercel.app
 
 `APP_ORIGIN` is useful when using a custom domain. Do not include a trailing slash. If it is omitted, the application derives the origin from the incoming request host.
 
-Vercel environment variables are encrypted at rest and are available to server-side Functions. Do not prefix private variables with `NEXT_PUBLIC_`.
+`SPOTIFY_CLIENT_SECRET` and the Redis token are server-only variables. Do not prefix them with `NEXT_PUBLIC_`.
 
 Vercel documentation: [Environment Variables](https://vercel.com/docs/environment-variables)
 
@@ -143,20 +143,7 @@ In the Spotify Developer Dashboard:
 5. Select **Add** if required.
 6. Select **Save**.
 
-The redirect URI must match exactly, including:
-
-- `https` rather than `http`,
-- the Vercel hostname,
-- `/api/auth/callback`,
-- capitalization,
-- trailing slash behavior.
-
-For example, these are different values:
-
-```text
-https://your-project.vercel.app/api/auth/callback
-https://your-project.vercel.app/api/auth/callback/
-```
+The redirect URI must match exactly, including `https`, the Vercel hostname, `/api/auth/callback`, capitalization, and trailing slash behavior.
 
 Spotify documentation: [Redirect URIs](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri)
 
@@ -168,13 +155,7 @@ Alternatively, push a new commit to the production branch of your fork.
 
 ### 8. Test login and pairing
 
-Open the Vercel production URL in normal Safari or another browser and select:
-
-```text
-Login to Spotify and get pairing code
-```
-
-Authorize the requested scopes:
+Open the Vercel production URL in normal Safari or another browser and select **Login to Spotify and get pairing code**. Authorize the requested scopes:
 
 - `user-read-currently-playing`
 - `user-read-playback-state`
@@ -182,7 +163,21 @@ Authorize the requested scopes:
 
 After authorization, the callback page displays a pairing code. Open the same Vercel URL in Safari on the iPad, select **Add to Home Screen**, and open the new icon. In the fullscreen app select **Enter pairing code**, enter the code, and confirm.
 
-You can also complete the login on a phone or computer, then enter the resulting code on the iPad.
+You can complete the login on a phone or computer, then enter the resulting code on the iPad.
+
+## GitHub README last-played badge
+
+After pairing the app and observing at least one playing track, select **Create GitHub README Badge** in the regular player. The app creates a random public badge key and displays Markdown similar to:
+
+```markdown
+[![Last played on Spotify](https://your-project.vercel.app/api/badge/abc123.svg)](https://your-project.vercel.app/)
+```
+
+Copy that Markdown into a GitHub profile `README.md`. The SVG displays the last track observed by the paired app, including album artwork, song title, and artist. The badge is a public image URL: anyone who can see the README source can request it.
+
+The badge is updated when the app successfully polls Spotify, normally about every five seconds while the iPad app is open. It does not independently monitor Spotify while the iPad app is closed. GitHub and image proxies may cache the image, so changes can appear with a delay of up to several minutes.
+
+The badge key is a viewing key, not a playback-control credential. It does not expose Spotify access tokens, refresh tokens, Redis credentials, or the private session cookie. The badge record expires after one year; create a new badge from the app if it expires.
 
 ## Features
 
@@ -195,7 +190,9 @@ The dashboard provides:
 - play/pause,
 - previous track,
 - next track,
-- automatic polling approximately every five seconds.
+- automatic polling approximately every five seconds,
+- a custom SVG last-played card for GitHub profile READMEs,
+- Minimalist View with centered album artwork and track text.
 
 The regular player also has a **Minimalist View** button. Minimalist View centers the album cover on the screen and places the artist and song name directly below it, hiding the other controls and interface elements. Tap the album cover to open the **Exit minimalist view?** confirmation. Select **yes** to return to the regular player or **no** to continue viewing the minimalist display.
 
@@ -206,31 +203,29 @@ Playback controls generally require a Spotify Premium account and an active cont
 - `/api/auth/login` — starts Spotify authorization
 - `/api/auth/callback` — exchanges the authorization code and creates a pairing code
 - `/api/auth/pair` — claims a one-time pairing code
-- `/api/spotify/currently-playing` — returns the authenticated account’s playback state
+- `/api/auth/logout` — deletes the current server-side session
+- `/api/spotify/currently-playing` — returns playback state and stores the latest observed track
 - `/api/spotify/command` — allowlisted play, pause, next, and previous commands
+- `/api/badge/create` — creates an authenticated public badge key
+- `/api/badge/<key>.svg` — returns the public GitHub-compatible SVG card
 
-## Security
+## Public-service notice and hardening
 
-The Client Secret, Spotify refresh token, access tokens, and Redis token remain server-side. They are never returned to the frontend, placed in URLs, or committed to Git.
+This is an independent hobby project and is **not operated, sponsored, endorsed, or maintained by Spotify**. Spotify is a trademark of Spotify AB. This project uses Spotify’s public Web API under the account holder’s own authorization and is not an official Spotify client.
 
-Pairing records expire after ten minutes and are deleted after successful use. Sessions are stored server-side with expiration and represented in the browser by an HttpOnly, Secure cookie.
+If you deploy this repository publicly, visitors can use your Vercel deployment and shared Spotify Developer application. They may consume Vercel Function invocations, Redis operations, and Spotify API quota. The included API applies lightweight Redis-backed per-IP limits to login starts, OAuth callbacks, pairing attempts, playback polling, playback commands, badge creation, and badge requests. These limits reduce casual abuse but are not a complete DDoS or identity system; monitor your Vercel and Redis usage and disable or protect the deployment if it is abused.
 
-This project is intended for a private personal display. Anyone who can access the login flow can authorize an account, so do not distribute your Vercel URL publicly if that is not desired.
+The **Disconnect** button calls `/api/auth/logout`, deletes the active server-side session where possible, and clears the browser cookie. Users should also revoke this app from their Spotify account settings if they want to remove its authorization completely.
+
+A public badge reveals the selected account’s last observed track metadata and album artwork. Do not create a public badge if that listening information should remain private.
+
+Before making a repository public, audit the complete Git history for credentials. Environment variables must remain only in Vercel. If a secret has ever been committed, rotate it even if the file was later deleted.
 
 The deployment includes security hardening headers (Content Security Policy, HSTS, X-Content-Type-Options, X-Frame-Options, and Referrer-Policy) applied via `vercel.json` on static routes and programmatically on API responses. These mitigate XSS, clickjacking, MIME-sniffing, and protocol-downgrade attacks.
 
 ## iPad 2 compatibility
 
-The frontend intentionally avoids:
-
-- `fetch`,
-- ES modules,
-- promises,
-- `async`/`await`,
-- `let` and `const`,
-- service workers,
-- Web Crypto requirements,
-- modern build-tool dependencies.
+The frontend intentionally avoids `fetch`, ES modules, promises, `async`/`await`, `let` and `const`, service workers, Web Crypto requirements, and modern build-tool dependencies.
 
 It uses ES5 JavaScript, `XMLHttpRequest`, old Safari-safe markup, and iOS Home Screen metadata. Vercel Functions run server-side and are independent of the iPad’s old JavaScript engine.
 
@@ -238,18 +233,10 @@ It uses ES5 JavaScript, `XMLHttpRequest`, old Safari-safe markup, and iOS Home S
 
 Vercel cannot force interactive Spotify login to remain inside an iOS 9 standalone Home Screen window. The pairing flow is intentional: login takes place in normal Safari or another browser, and the authenticated session is then transferred to the fullscreen app using a one-time code.
 
+The badge represents the last track observed while the paired app was polling. It is not a continuous Spotify listening-history monitor. GitHub image caching can delay visible updates.
+
 GitHub Pages alone cannot safely store the Spotify Client Secret or maintain the shared pairing/session state required by this flow.
 
 ## License
 
 MIT.
-
-## Public-service notice and hardening
-
-This is an independent hobby project and is **not operated, sponsored, endorsed, or maintained by Spotify**. Spotify is a trademark of Spotify AB. This project uses Spotify’s public Web API under the account holder’s own authorization and is not an official Spotify client.
-
-If you deploy this repository publicly, visitors can use your Vercel deployment and shared Spotify Developer application. They may consume Vercel Function invocations, Redis operations, and Spotify API quota. The included API applies lightweight Redis-backed per-IP limits to login starts, OAuth callbacks, pairing attempts, playback polling, and playback commands. These limits reduce casual abuse but are not a complete DDoS or identity system; monitor your Vercel and Redis usage and disable or protect the deployment if it is abused.
-
-The **Disconnect** button calls `/api/auth/logout`, deletes the active server-side session where possible, and clears the browser cookie. Users should also revoke this app from their Spotify account settings if they want to remove its authorization completely.
-
-Before making a repository public, audit the complete Git history for credentials. Environment variables must remain only in Vercel. If a secret has ever been committed, rotate it even if the file was later deleted.
