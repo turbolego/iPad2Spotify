@@ -1,5 +1,8 @@
 var lib = require('../_lib');
 module.exports = function (req, res) {
+  lib.rateLimit(req, 'poll', 40, 60, function (limitErr, limited) {
+  if (limitErr) return lib.json(res, 503, { error: 'Rate-limit storage is unavailable.' });
+  if (limited) return lib.json(res, 429, { error: 'Polling too frequently. Try again shortly.' });
   var sid = lib.cookie(req, 'spotify_session');
   if (!sid) return lib.json(res, 401, { error: 'Pair this fullscreen app first.' });
   lib.kvGet('session:' + sid, function (err, session) {
@@ -14,5 +17,6 @@ module.exports = function (req, res) {
         lib.json(res, 200, data);
       });
     });
+  });
   });
 };

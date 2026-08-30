@@ -1,5 +1,8 @@
 var lib = require('../_lib');
 module.exports = function (req, res) {
+  lib.rateLimit(req, 'callback', 20, 600, function (limitErr, limited) {
+  if (limitErr) return lib.json(res, 503, { error: 'Rate-limit storage is unavailable.' });
+  if (limited) return lib.json(res, 429, { error: 'Too many authorization attempts. Try again later.' });
   var q = require('url').parse(req.url, true).query, cfg = lib.config(req), expected = lib.cookie(req, 'spotify_oauth_state');
   if (!q.code || !q.state || !expected || q.state !== expected) return lib.json(res, 400, { error: 'OAuth state mismatch. Start login again.' });
   var body = 'grant_type=authorization_code&code=' + encodeURIComponent(q.code) + '&redirect_uri=' + encodeURIComponent(cfg.redirect);
@@ -13,5 +16,6 @@ module.exports = function (req, res) {
       res.statusCode = 200; res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.end('<!doctype html><meta name="viewport" content="width=device-width"><title>Spotify pairing code</title><style>body{font-family:Arial;background:#101211;color:#f5f1e8;text-align:center;padding:12vh 20px}h1{font-size:24px;font-weight:normal}strong{display:block;color:#b6d64b;font-size:52px;letter-spacing:.15em;margin:35px 0}p{color:#b8c4b6;line-height:1.6}</style><h1>Spotify login complete</h1><strong>' + pair + '</strong><p>Open the iPad2Spotify Home Screen app and enter this code.<br>This code expires in 10 minutes and can be used once.</p>');
     });
+  });
   });
 };

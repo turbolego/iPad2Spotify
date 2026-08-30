@@ -238,3 +238,13 @@ GitHub Pages alone cannot safely store the Spotify Client Secret or maintain the
 ## License
 
 MIT.
+
+## Public-service notice and hardening
+
+This is an independent hobby project and is **not operated, sponsored, endorsed, or maintained by Spotify**. Spotify is a trademark of Spotify AB. This project uses Spotify’s public Web API under the account holder’s own authorization and is not an official Spotify client.
+
+If you deploy this repository publicly, visitors can use your Vercel deployment and shared Spotify Developer application. They may consume Vercel Function invocations, Redis operations, and Spotify API quota. The included API applies lightweight Redis-backed per-IP limits to login starts, OAuth callbacks, pairing attempts, playback polling, and playback commands. These limits reduce casual abuse but are not a complete DDoS or identity system; monitor your Vercel and Redis usage and disable or protect the deployment if it is abused.
+
+The **Disconnect** button calls `/api/auth/logout`, deletes the active server-side session where possible, and clears the browser cookie. Users should also revoke this app from their Spotify account settings if they want to remove its authorization completely.
+
+Before making a repository public, audit the complete Git history for credentials. Environment variables must remain only in Vercel. If a secret has ever been committed, rotate it even if the file was later deleted.

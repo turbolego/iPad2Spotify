@@ -18,6 +18,8 @@ function setCookie(res, name, value, maxAge) {
   res.setHeader('Set-Cookie', name + '=' + encodeURIComponent(value) + '; Max-Age=' + maxAge + '; Path=/; HttpOnly; Secure; SameSite=Lax');
 }
 function clearCookie(res, name) { setCookie(res, name, '', 0); }
+function clientIp(req) { var forwarded = req.headers['x-forwarded-for']; return (forwarded ? forwarded.split(',')[0] : (req.headers['x-real-ip'] || 'unknown')).trim(); }
+function rateLimit(req, bucket, limit, seconds, callback) { kv.kvIncr('rate:' + bucket + ':' + clientIp(req), seconds, function (err, count) { if (err) return callback(err); count = parseInt(count, 10); callback(null, count > limit, count); }); }
 function base64Url(value) { return value.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'); }
 function random(size) { return base64Url(crypto.randomBytes(size)); }
 function redirect(res, location) { res.statusCode = 302; res.setHeader('Location', location); res.end(); }
@@ -37,4 +39,4 @@ function spotifyToken(cfg, body, callback) {
   var encoded = Buffer.from(cfg.id + ':' + cfg.secret).toString('base64');
   request('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Authorization': 'Basic ' + encoded, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) }, body: body }, callback);
 }
-module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, random: random, redirect: redirect, config: config, origin: origin, request: request, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
+module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, redirect: redirect, config: config, origin: origin, request: request, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };

@@ -7,4 +7,5 @@ function call(command, callback) {
 function kvSet(key, value, seconds, cb) { call(['set', key, JSON.stringify(value), 'EX', seconds], cb); }
 function kvGet(key, cb) { call(['get', key], function (err, value) { if (err || !value) return cb(err, null); try { cb(null, JSON.parse(value)); } catch (e) { cb(e); } }); }
 function kvDel(key, cb) { call(['del', key], cb); }
-module.exports = { kvSet: kvSet, kvGet: kvGet, kvDel: kvDel };
+function kvIncr(key, seconds, cb) { call(['incr', key], function (err, value) { if (err) return cb(err); if (String(value) === '1') call(['expire', key, seconds], function (expireErr) { cb(expireErr, value); }); else cb(null, value); }); }
+module.exports = { kvSet: kvSet, kvGet: kvGet, kvDel: kvDel, kvIncr: kvIncr };
