@@ -177,7 +177,9 @@ After pairing the app and observing at least one playing track, select **Create 
 [![Last played on Spotify](https://your-project.vercel.app/api/badge/abc123.svg)](https://your-project.vercel.app/)
 ```
 
-Copy that Markdown into a GitHub profile `README.md`. The SVG displays the last track observed by the paired app, including album artwork, song title, and artist. For each badge request, the server uses the stored track ID with Spotify’s `GET /v1/tracks/{id}` endpoint and selects `album.images[0].url`, the highest-resolution artwork returned by Spotify. It then embeds the downloaded image data inside the SVG so GitHub does not need to load a remote image nested inside the badge. The badge is a public image URL: anyone who can see the README source can request it.
+Copy that Markdown into a GitHub profile `README.md`. The SVG displays the last track observed by the paired app, including album artwork, song title, and artist. For each badge request, the server uses the stored track ID with Spotify’s `GET /v1/tracks/{id}` endpoint and selects `album.images[0].url`, the highest-resolution artwork returned by Spotify. It then downloads and embeds the artwork inside the SVG so GitHub does not need to load a remote image nested inside the badge. The badge is a public image URL: anyone who can see the README source can request it.
+
+The badge lifecycle is: the paired app polls `/api/spotify/currently-playing`; the server refreshes the Spotify access token from the server-side session; the latest track ID and basic metadata are saved in Redis; **Create GitHub README Badge** creates a random badge key mapped to that session; and GitHub requests `/api/badge/<key>.svg` when rendering the profile README. The badge endpoint looks up the stored track ID, asks Spotify for the current track object and album image, embeds the image, and returns an SVG. The badge is cached for a short period, so GitHub may show an older song for several minutes.
 
 The badge is updated when the app successfully polls Spotify, normally about every five seconds while the iPad app is open. It does not independently monitor Spotify while the iPad app is closed. GitHub and image proxies may cache the image, so changes can appear with a delay of up to several minutes.
 
@@ -244,3 +246,22 @@ GitHub Pages alone cannot safely store the Spotify Client Secret or maintain the
 ## License
 
 MIT.
+
+## Important: shared public deployment versus your own fork
+
+The public URL `https://ipad2spotify.vercel.app/` is a shared deployment operated by the repository owner. It is convenient for trying the app, but it means your Spotify authorization request and OAuth callback pass through that owner’s Vercel Functions. The resulting server-side refresh token is stored in the Redis database connected to that deployment, and playback requests and badge records are also processed there. The Client Secret is not sent to your browser, but the deployment owner controls the server code, environment configuration, logs, storage account, and future updates.
+
+**No guarantee is made about the safety or availability of Spotify accounts authorized through the shared deployment.** Do not use the shared URL if you are not comfortable trusting its operator with the server-side handling of your Spotify authorization session. This project is an independent hobby project, not operated by Spotify, and the public deployment may change, be disabled, or be abused by third parties.
+
+For better security and control, fork the repository and deploy your own copy to your own Vercel project. With a self-hosted deployment:
+
+- your own Spotify Developer app supplies the Client ID and Client Secret;
+- OAuth callbacks go to your Vercel project rather than the shared deployment;
+- your own Upstash Redis database stores pairing records, sessions, and badge mappings;
+- your Spotify refresh tokens remain under your Vercel/Redis account and configuration;
+- you control source-code changes, environment-variable access, logs, domains, rate limits, and deletion of stored sessions;
+- you can revoke or rotate your own Spotify and Redis credentials without affecting other users.
+
+Self-hosting does not remove all risk: Vercel, Upstash, Spotify, GitHub, and your own configuration remain part of the trust chain. It does, however, remove the repository owner’s shared server and storage from the OAuth path and gives you substantially better control over your credentials and data.
+
+For personal use, the recommended setup is to fork the repository, create your own Spotify Developer app, create your own Upstash Redis database, add your own Vercel environment variables, and use your own production URL. Follow the [Fork and deploy your own copy](#fork-and-deploy-your-own-copy) instructions above.
