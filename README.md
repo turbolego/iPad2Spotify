@@ -196,11 +196,15 @@ The dashboard provides:
 - play/pause,
 - previous track,
 - next track,
+- a playback timeline showing elapsed and total track time,
 - automatic polling approximately every five seconds,
 - a custom SVG last-played card for GitHub profile READMEs,
-- Minimalist View with centered album artwork and track text.
+- Minimalist View with centered album artwork and track text,
+- Search Artist to start artist radio playback for any artist.
 
 The regular player also has a **Minimalist View** button. Minimalist View centers the album cover on the screen and places the artist and song name directly below it, hiding the other controls and interface elements. Tap the album cover to open the **Exit minimalist view?** confirmation. Select **yes** to return to the regular player or **no** to continue viewing the minimalist display.
+
+The **Search Artist** button opens a search dialog. Enter an artist name and select **Search** to see matching Spotify artists, then select an artist to start playback of that artist's catalog (Spotify's equivalent of "artist radio") on the currently active device.
 
 Playback controls generally require a Spotify Premium account and an active controllable Spotify device. The dashboard does not play audio itself.
 
@@ -211,7 +215,8 @@ Playback controls generally require a Spotify Premium account and an active cont
 - `/api/auth/pair` — claims a one-time pairing code
 - `/api/auth/logout` — deletes the current server-side session
 - `/api/spotify/currently-playing` — returns playback state and stores the latest observed track
-- `/api/spotify/command` — allowlisted play, pause, next, and previous commands
+- `/api/spotify/command` — allowlisted play, pause, next, previous, and play_artist (artist radio) commands
+- `/api/spotify/search-artist` — searches Spotify for artists by name
 - `/api/badge/create` — creates an authenticated public badge key
 - `/api/badge/<key>.svg` — returns the public GitHub-compatible SVG card
 
