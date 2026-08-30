@@ -4,6 +4,10 @@ A Spotify currently-playing dashboard designed for an iPad 2 running Safari/iOS 
 
 The frontend uses old-browser-compatible ES5 JavaScript and `XMLHttpRequest`. Spotify credentials and tokens are handled by Vercel Functions, not by the iPad browser.
 
+Since we need to use Vercel anyways, the webapp creates a shortcode for a "badge" you can add to your github profile or anywhere displaying the song played last:
+
+[![Last played on Spotify](https://ipad2spotify.vercel.app/api/badge/mubt1yl4wmxywii.svg)](https://ipad2spotify.vercel.app/)
+
 <img width="2048" height="1536" alt="16575086-a7c7-4d9c-8d69-fe333fd9baf2" src="https://github.com/user-attachments/assets/be86356a-907a-4f3b-b0cd-2bd4d81a1b36" />
 
 
