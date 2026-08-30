@@ -101,6 +101,44 @@ test('surfaces the real Spotify error message instead of a generic failure', fun
   });
 });
 
+test('targets an available device even when none is marked active', function (t, done) {
+  var calls = [];
+  var restore = stubLib({
+    rateLimit: notLimited, kvGet: validSession, spotifyToken: validToken,
+    request: function (url, options, cb) {
+      calls.push(url);
+      if (url.indexOf('/me/player/devices') !== -1) return cb(null, 200, { devices: [{ id: 'device-1', is_active: false }] });
+      cb(null, 204, null);
+    }
+  });
+  var res = helpers.fakeRes();
+  command(helpers.fakeReq('POST', '/api/spotify/command', 'spotify_session=sid', { action: 'next' }), res);
+  setImmediate(function () {
+    restore();
+    assert.match(calls[1], /device_id=device-1/);
+    assert.strictEqual(res.statusCode, 200);
+    done();
+  });
+});
+
+test('maps NO_ACTIVE_DEVICE to a friendly message when no device is available', function (t, done) {
+  var restore = stubLib({
+    rateLimit: notLimited, kvGet: validSession, spotifyToken: validToken,
+    request: function (url, options, cb) {
+      if (url.indexOf('/me/player/devices') !== -1) return cb(null, 200, { devices: [] });
+      cb(null, 404, { error: { status: 404, reason: 'NO_ACTIVE_DEVICE', message: 'No active device found' } });
+    }
+  });
+  var res = helpers.fakeRes();
+  command(helpers.fakeReq('POST', '/api/spotify/command', 'spotify_session=sid', { action: 'play_artist', artist_id: '4NHQUGzhtTLFvgF5SZesLK' }), res);
+  setImmediate(function () {
+    restore();
+    assert.strictEqual(res.statusCode, 404);
+    assert.match(helpers.resBody(res).error, /open spotify/i);
+    done();
+  });
+});
+
 test('returns 429 when rate limited', function () {
   var restore = stubLib({ rateLimit: function (req, bucket, limit, seconds, cb) { cb(null, true); } });
   var res = helpers.fakeRes();

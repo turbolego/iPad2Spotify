@@ -6,8 +6,19 @@ function artistIdFrom(body) {
 function spotifyErrorMessage(data) {
   var err = data && data.error;
   if (!err) return 'Spotify request failed.';
+  var reason = (typeof err === 'string' ? err : err.reason) || '';
+  if (reason === 'NO_ACTIVE_DEVICE') return 'Open Spotify on a phone, computer, or speaker first, then try again.';
   if (typeof err === 'string') return err;
   return err.message || err.reason || 'Spotify request failed.';
+}
+// Spotify requires a target device for playback commands; look one up so we can pin the
+// command to it even when nothing is currently marked "active" (a common cause of 404s).
+function findDeviceId(accessToken, callback) {
+  lib.request('https://api.spotify.com/v1/me/player/devices', { headers: { Authorization: 'Bearer ' + accessToken } }, function (apiErr, status, data) {
+    if (apiErr || status !== 200 || !data || !Array.isArray(data.devices) || !data.devices.length) return callback(null);
+    var active = data.devices.filter(function (d) { return d.is_active; })[0];
+    callback((active || data.devices[0]).id);
+  });
 }
 module.exports = function (req, res) {
   if (req.method !== 'POST') return lib.json(res, 405, { error: 'POST required' });
@@ -23,15 +34,18 @@ module.exports = function (req, res) {
     var target = !isArtist && paths[body && body.action];
     if (!isArtist && !target) return lib.json(res, 400, { error: 'Unknown playback command.' });
     lib.kvGet('session:' + sid, function (err, session) { if (err || !session) return lib.json(res, 401, { error: 'Session expired. Pair again.' }); var cfg = lib.config(req); lib.spotifyToken(cfg, 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(session.refresh_token), function (tokenErr, tokenStatus, token) { if (tokenErr || tokenStatus !== 200 || !token.access_token) return lib.json(res, 401, { error: 'Spotify authorization expired.' });
-      var method = isArtist ? 'PUT' : target[0];
-      var path = isArtist ? '/me/player/play' : target[1];
-      var payload = isArtist ? JSON.stringify({ context_uri: 'spotify:artist:' + artistId }) : null;
-      var headers = { Authorization: 'Bearer ' + token.access_token };
-      if (payload) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(payload); } else { headers['Content-Length'] = 0; }
-      lib.request('https://api.spotify.com/v1' + path, { method: method, headers: headers, body: payload }, function (apiErr, status, data) {
-        if (apiErr) return lib.json(res, 502, { error: 'Spotify request failed.' });
-        if (status === 200 || status === 204) return lib.json(res, 200, {});
-        lib.json(res, status, { error: spotifyErrorMessage(data) });
+      findDeviceId(token.access_token, function (deviceId) {
+        var method = isArtist ? 'PUT' : target[0];
+        var path = isArtist ? '/me/player/play' : target[1];
+        if (deviceId) path += (path.indexOf('?') === -1 ? '?' : '&') + 'device_id=' + encodeURIComponent(deviceId);
+        var payload = isArtist ? JSON.stringify({ context_uri: 'spotify:artist:' + artistId }) : null;
+        var headers = { Authorization: 'Bearer ' + token.access_token };
+        if (payload) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(payload); } else { headers['Content-Length'] = 0; }
+        lib.request('https://api.spotify.com/v1' + path, { method: method, headers: headers, body: payload }, function (apiErr, status, data) {
+          if (apiErr) return lib.json(res, 502, { error: 'Spotify request failed.' });
+          if (status === 200 || status === 204) return lib.json(res, 200, {});
+          lib.json(res, status, { error: spotifyErrorMessage(data) });
+        });
       });
     }); });
   });
