@@ -1,0 +1,16 @@
+# Environment variables (must never be committed)
+.env
+.env.local
+.env.production
+env.*
+local*
+
+# IDE and OS files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Vercel output
+.vercel/

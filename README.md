@@ -214,6 +214,8 @@ Pairing records expire after ten minutes and are deleted after successful use. S
 
 This project is intended for a private personal display. Anyone who can access the login flow can authorize an account, so do not distribute your Vercel URL publicly if that is not desired.
 
+The deployment includes security hardening headers (Content Security Policy, HSTS, X-Content-Type-Options, X-Frame-Options, and Referrer-Policy) applied via `vercel.json` on static routes and programmatically on API responses. These mitigate XSS, clickjacking, MIME-sniffing, and protocol-downgrade attacks.
+
 ## iPad 2 compatibility
 
 The frontend intentionally avoids:

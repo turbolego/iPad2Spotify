@@ -1,7 +1,15 @@
 var crypto = require('crypto');
 var kv = require('./_kv');
 
+function securityHeaders(res) {
+  res.setHeader('Content-Security-Policy', "default-src 'self'; img-src 'self' https://i.scdn.co; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+}
 function json(res, status, body) {
+  securityHeaders(res);
   res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify(body));
 }
@@ -22,7 +30,7 @@ function clientIp(req) { var forwarded = req.headers['x-forwarded-for']; return 
 function rateLimit(req, bucket, limit, seconds, callback) { kv.kvIncr('rate:' + bucket + ':' + clientIp(req), seconds, function (err, count) { if (err) return callback(err); count = parseInt(count, 10); callback(null, count > limit, count); }); }
 function base64Url(value) { return value.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'); }
 function random(size) { return base64Url(crypto.randomBytes(size)); }
-function redirect(res, location) { res.statusCode = 302; res.setHeader('Location', location); res.end(); }
+function redirect(res, location) { securityHeaders(res); res.statusCode = 302; res.setHeader('Location', location); res.end(); }
 function origin(req) { return (process.env.APP_ORIGIN || ('https://' + req.headers.host)).replace(/\/$/, ''); }
 function config(req) { return { id: process.env.SPOTIFY_CLIENT_ID, secret: process.env.SPOTIFY_CLIENT_SECRET, redirect: origin(req) + '/api/auth/callback' }; }
 function request(url, options, callback) {
