@@ -1,5 +1,7 @@
 var lib = require('../_lib');
 function esc(value) { return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); }
+function emptySvg() { return '<svg xmlns="http://www.w3.org/2000/svg" width="520" height="150" viewBox="0 0 520 150"><rect width="520" height="150" rx="10" fill="#1b231f"/><text x="25" y="55" fill="#b6d64b" font-family="Arial" font-size="16">♫ LAST PLAYED ON SPOTIFY</text><text x="25" y="95" fill="#f5f1e8" font-family="Arial" font-size="18">No track observed yet</text><text x="25" y="125" fill="#899389" font-family="Arial" font-size="12">Independent hobby project</text></svg>'; }
+function sendSvg(res, svg) { res.statusCode = 200; res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8'); res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300'); res.setHeader('X-Content-Type-Options', 'nosniff'); res.end(svg); }
 module.exports = function (req, res) {
   lib.rateLimit(req, 'badge-read', 60, 60, function (limitErr, limited) {
     if (limitErr) return lib.json(res, 503, { error: 'Rate-limit storage is unavailable.' });
@@ -9,10 +11,25 @@ module.exports = function (req, res) {
     lib.kvGet('badge:' + key, function (err, badge) {
       if (err || !badge) return lib.json(res, 404, { error: 'Badge not found.' });
       lib.kvGet('last:' + badge.session, function (lastErr, track) {
-        res.statusCode = 200; res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8'); res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
-        if (lastErr || !track) return res.end('<svg xmlns="http://www.w3.org/2000/svg" width="520" height="150" viewBox="0 0 520 150"><rect width="520" height="150" rx="10" fill="#1b231f"/><text x="25" y="55" fill="#b6d64b" font-family="Arial" font-size="16">♫ LAST PLAYED ON SPOTIFY</text><text x="25" y="95" fill="#f5f1e8" font-family="Arial" font-size="18">No track observed yet</text><text x="25" y="125" fill="#899389" font-family="Arial" font-size="12">Independent hobby project</text></svg>');
-        var image = track.album_image_url ? '<image href="' + esc(track.album_image_url) + '" xlink:href="' + esc(track.album_image_url) + '" x="0" y="0" width="150" height="150" preserveAspectRatio="xMidYMid slice"/>' : '<rect width="150" height="150" fill="#27332b"/><text x="75" y="85" text-anchor="middle" fill="#b6d64b" font-size="48">♫</text>';
-        res.end('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="620" height="150" viewBox="0 0 620 150">' + image + '<rect x="150" width="470" height="150" fill="#1b231f"/><text x="175" y="38" fill="#b6d64b" font-family="Arial" font-size="13" letter-spacing="2">LAST PLAYED ON SPOTIFY</text><text x="175" y="78" fill="#f5f1e8" font-family="Arial" font-size="22" font-weight="bold">' + esc(track.track_name).slice(0, 52) + '</text><text x="175" y="108" fill="#c4ccc3" font-family="Arial" font-size="16">' + esc(track.artist_name).slice(0, 52) + '</text><text x="175" y="133" fill="#899389" font-family="Arial" font-size="11">Independent hobby project · not Spotify</text></svg>');
+        if (lastErr || !track || !track.track_id) return sendSvg(res, emptySvg());
+        var cfg = lib.config(req);
+        lib.kvGet('session:' + badge.session, function (sessionErr, session) {
+          if (sessionErr || !session) return sendSvg(res, emptySvg());
+          lib.spotifyToken(cfg, 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(session.refresh_token), function (tokenErr, tokenStatus, token) {
+            if (tokenErr || tokenStatus !== 200 || !token.access_token) return sendSvg(res, emptySvg());
+            lib.request('https://api.spotify.com/v1/tracks/' + encodeURIComponent(track.track_id), { headers: { Authorization: 'Bearer ' + token.access_token } }, function (apiErr, apiStatus, spotifyTrack) {
+              var apiImage = spotifyTrack && spotifyTrack.album && spotifyTrack.album.images && spotifyTrack.album.images.length ? spotifyTrack.album.images[0].url : '';
+              if (apiErr || apiStatus !== 200 || !apiImage) return sendSvg(res, emptySvg());
+              lib.requestBuffer(apiImage, {}, function (imageErr, imageStatus, imageData, headers) {
+                var type = headers && headers['content-type'] && headers['content-type'].split(';')[0];
+                var image = !imageErr && imageStatus === 200 && type && type.indexOf('image/') === 0 ? 'data:' + type + ';base64,' + imageData.toString('base64') : '';
+                var title = spotifyTrack.name || track.track_name, artist = (spotifyTrack.artists || []).map(function (a) { return a.name; }).join(', ') || track.artist_name;
+                var artwork = image ? '<image href="' + image + '" xlink:href="' + image + '" x="0" y="0" width="150" height="150" preserveAspectRatio="xMidYMid slice"/>' : '<rect width="150" height="150" fill="#27332b"/><text x="75" y="85" text-anchor="middle" fill="#b6d64b" font-size="48">♫</text>';
+                sendSvg(res, '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="620" height="150" viewBox="0 0 620 150">' + artwork + '<rect x="150" width="470" height="150" fill="#1b231f"/><text x="175" y="38" fill="#b6d64b" font-family="Arial" font-size="13" letter-spacing="2">LAST PLAYED ON SPOTIFY</text><text x="175" y="78" fill="#f5f1e8" font-family="Arial" font-size="22" font-weight="bold">' + esc(title).slice(0, 52) + '</text><text x="175" y="108" fill="#c4ccc3" font-family="Arial" font-size="16">' + esc(artist).slice(0, 52) + '</text><text x="175" y="133" fill="#899389" font-family="Arial" font-size="11">Independent hobby project · not Spotify</text></svg>');
+              });
+            });
+          });
+        });
       });
     });
   });

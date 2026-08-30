@@ -173,7 +173,7 @@ After pairing the app and observing at least one playing track, select **Create 
 [![Last played on Spotify](https://your-project.vercel.app/api/badge/abc123.svg)](https://your-project.vercel.app/)
 ```
 
-Copy that Markdown into a GitHub profile `README.md`. The SVG displays the last track observed by the paired app, including album artwork, song title, and artist. The badge is a public image URL: anyone who can see the README source can request it.
+Copy that Markdown into a GitHub profile `README.md`. The SVG displays the last track observed by the paired app, including album artwork, song title, and artist. For each badge request, the server uses the stored track ID with Spotify’s `GET /v1/tracks/{id}` endpoint and selects `album.images[0].url`, the highest-resolution artwork returned by Spotify. It then embeds the downloaded image data inside the SVG so GitHub does not need to load a remote image nested inside the badge. The badge is a public image URL: anyone who can see the README source can request it.
 
 The badge is updated when the app successfully polls Spotify, normally about every five seconds while the iPad app is open. It does not independently monitor Spotify while the iPad app is closed. GitHub and image proxies may cache the image, so changes can appear with a delay of up to several minutes.
 

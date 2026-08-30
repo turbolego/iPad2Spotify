@@ -47,4 +47,8 @@ function spotifyToken(cfg, body, callback) {
   var encoded = Buffer.from(cfg.id + ':' + cfg.secret).toString('base64');
   request('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Authorization': 'Basic ' + encoded, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) }, body: body }, callback);
 }
-module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, redirect: redirect, config: config, origin: origin, request: request, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
+function requestBuffer(url, options, callback) {
+  var https = require('https'), parsed = require('url').parse(url), req = https.request({ hostname: parsed.hostname, path: parsed.path, method: options.method || 'GET', headers: options.headers || {} }, function (res) { var chunks = []; res.on('data', function (chunk) { chunks.push(chunk); }); res.on('end', function () { callback(null, res.statusCode, Buffer.concat(chunks), res.headers); }); });
+  req.on('error', function (err) { callback(err); }); req.end();
+}
+module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, redirect: redirect, config: config, origin: origin, request: request, requestBuffer: requestBuffer, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
