@@ -1,6 +1,6 @@
 var lib = require('../_lib');
 module.exports = function (req, res) {
-  if (req.method !== 'POST') return lib.json(res, 405, { error: 'POST required' });
+  if ((req.method || '').toUpperCase() !== 'POST') return lib.json(res, 405, { error: 'Expected POST but received ' + req.method + '.' });
   lib.rateLimit(req, 'badge-create', 3, 3600, function (limitErr, limited) {
     if (limitErr) return lib.json(res, 503, { error: 'Rate-limit storage is unavailable.' });
     if (limited) return lib.json(res, 429, { error: 'Too many badge keys created. Try again later.' });

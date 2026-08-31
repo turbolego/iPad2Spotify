@@ -21,7 +21,7 @@ function findDeviceId(accessToken, callback) {
   });
 }
 module.exports = function (req, res) {
-  if (req.method !== 'POST') return lib.json(res, 405, { error: 'POST required' });
+  if ((req.method || '').toUpperCase() !== 'POST') return lib.json(res, 405, { error: 'Expected POST but received ' + req.method + '.' });
   lib.rateLimit(req, 'command', 60, 60, function (limitErr, limited) {
   if (limitErr) return lib.json(res, 503, { error: 'Rate-limit storage is unavailable.' });
   if (limited) return lib.json(res, 429, { error: 'Too many playback commands. Try again shortly.' });

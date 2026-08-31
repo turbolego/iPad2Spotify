@@ -1,6 +1,6 @@
 var lib = require('../_lib');
 module.exports = function (req, res) {
-  if (req.method !== 'GET') return lib.json(res, 405, { error: 'GET required' });
+  if ((req.method || '').toUpperCase() !== 'GET') return lib.json(res, 405, { error: 'Expected GET but received ' + req.method + '.' });
   lib.rateLimit(req, 'search-artist', 30, 60, function (limitErr, limited) {
     if (limitErr) return lib.json(res, 503, { error: 'Rate-limit storage is unavailable.' });
     if (limited) return lib.json(res, 429, { error: 'Too many searches. Try again shortly.' });
