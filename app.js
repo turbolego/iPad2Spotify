@@ -4,7 +4,7 @@
   var current = null, timer, minimalist = false;
   function id(name){return document.getElementById(name)}
   function message(text){id('message').innerHTML=text}
-  function request(method,url,body,done){var x=new XMLHttpRequest();x.open(method,url,true);if(body)x.setRequestHeader('Content-Type','application/json');x.onreadystatechange=function(){if(x.readyState===4){var d={};try{d=JSON.parse(x.responseText||'{}')}catch(e){}done(x.status,d)}};x.send(body?JSON.stringify(body):null)}
+  function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+location.host+url;var x=new XMLHttpRequest();x.open(method,url,true);if(body)x.setRequestHeader('Content-Type','application/json');x.onreadystatechange=function(){if(x.readyState===4){var d={};try{d=JSON.parse(x.responseText||'{}')}catch(e){}done(x.status,d)}};x.send(body?JSON.stringify(body):null)}
   function showPlayer(){id('setup').className='card hidden';id('player').className='player';id('status').innerHTML='Connected';poll()}
   function pair(){var code=id('pairing-code').value.replace(/[^a-z0-9]/ig,'').toUpperCase();if(!code){message('Enter the code shown in Safari after Spotify login.');return}message('Pairing this fullscreen app…');request('POST','/api/auth/pair',{code:code},function(status,data){if(status===200){message('');showPlayer()}else if(status===0)message('Could not reach the server. Check the connection and try again.');else message((data&&data.error)||('Pairing failed (status '+status+'). Try a new code.'))})}
   function login(){window.location.href='/api/auth/login'}
