@@ -30,6 +30,14 @@ function clientIp(req) { var forwarded = req.headers['x-forwarded-for']; return 
 function rateLimit(req, bucket, limit, seconds, callback) { kv.kvIncr('rate:' + bucket + ':' + clientIp(req), seconds, function (err, count) { if (err) return callback(err); count = parseInt(count, 10); callback(null, count > limit, count); }); }
 function base64Url(value) { return value.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'); }
 function random(size) { return base64Url(crypto.randomBytes(size)); }
+// Fixed-length, human-typeable code: 32-char alphabet (no 0/O, 1/I/L confusion) maps
+// bytes % 32 with zero modulo bias since 256 is an exact multiple of 32.
+var PAIRING_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+function pairingCode(length) {
+  var bytes = crypto.randomBytes(length), out = '';
+  for (var i = 0; i < length; i++) out += PAIRING_ALPHABET[bytes[i] % PAIRING_ALPHABET.length];
+  return out;
+}
 function redirect(res, location) { securityHeaders(res); res.statusCode = 302; res.setHeader('Location', location); res.end(); }
 function origin(req) { return (process.env.APP_ORIGIN || ('https://' + req.headers.host)).replace(/\/$/, ''); }
 function config(req) { return { id: process.env.SPOTIFY_CLIENT_ID, secret: process.env.SPOTIFY_CLIENT_SECRET, redirect: origin(req) + '/api/auth/callback' }; }
@@ -51,4 +59,4 @@ function requestBuffer(url, options, callback) {
   var https = require('https'), parsed = require('url').parse(url), req = https.request({ hostname: parsed.hostname, path: parsed.path, method: options.method || 'GET', headers: options.headers || {} }, function (res) { var chunks = []; res.on('data', function (chunk) { chunks.push(chunk); }); res.on('end', function () { callback(null, res.statusCode, Buffer.concat(chunks), res.headers); }); });
   req.on('error', function (err) { callback(err); }); req.end();
 }
-module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, redirect: redirect, config: config, origin: origin, request: request, requestBuffer: requestBuffer, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
+module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, pairingCode: pairingCode, redirect: redirect, config: config, origin: origin, request: request, requestBuffer: requestBuffer, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };

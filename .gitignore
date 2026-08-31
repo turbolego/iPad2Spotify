@@ -14,3 +14,6 @@ local*
 
 # Vercel output
 .vercel/
+
+# Vercel log exports (may contain request metadata; never commit)
+*-log-export-*.json

@@ -8,7 +8,7 @@ module.exports = function (req, res) {
   var body = 'grant_type=authorization_code&code=' + encodeURIComponent(q.code) + '&redirect_uri=' + encodeURIComponent(cfg.redirect);
   lib.spotifyToken(cfg, body, function (err, status, data) {
     if (err || status !== 200 || !data || !data.refresh_token) return lib.json(res, 502, { error: 'Spotify token exchange failed.' });
-    var pair = lib.random(6).replace(/[-_]/g, '').toUpperCase().slice(0, 8);
+    var pair = lib.pairingCode(8);
     var record = { refresh_token: data.refresh_token, created: new Date().getTime(), expires: new Date().getTime() + 600000 };
     lib.kvSet('pair:' + pair, record, 600, function (kvErr) {
       if (kvErr) return lib.json(res, 503, { error: kvErr.message || 'Pairing storage failed. Check the Vercel KV/Upstash variables and redeploy.' });
