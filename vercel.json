@@ -11,7 +11,13 @@
       ]
     },
     {
-      "source": "/(index\\.html|app\\.js|styles\\.css)?",
+      "source": "/",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/(index\\.html|app\\.js|styles\\.css)",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
       ]
