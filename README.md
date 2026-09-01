@@ -25,6 +25,10 @@ The pairing code expires after ten minutes and is deleted after it is claimed. T
 
 ## Fork and deploy your own copy
 
+Alternative 1: Use this button:
+
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fturbolego%2FiPad2Spotify&project-name=ipad2spotify&repository-name=ipad2spotify&integration-ids=oac_V3R1GIpkoJorr6fqyiwdhl17&env=SPOTIFY_CLIENT_ID&envDescription=Spotify%20app%20Client%20ID%20from%20the%20Spotify%20Developer%20Dashboard&envLink=https%3A%2F%2Fdeveloper.spotify.com%2Fdashboard&env=SPOTIFY_CLIENT_SECRET&envDescription=Spotify%20app%20Client%20Secret%20from%20the%20Spotify%20Developer%20Dashboard%20%28server-only%2C%20mark%20sensitive%29&envLink=https%3A%2F%2Fdeveloper.spotify.com%2Fdashboard&env=APP_ORIGIN&envDescription=Optional.%20Production%20origin%2C%20e.g.%20https%3A%2F%2Fyour-project.vercel.app.%20Used%20for%20the%20Spotify%20redirect%20URI.%20No%20trailing%20slash.&envLink=https%3A%2F%2Fvercel.com%2Fdocs%2Fenvironment-variables)
+
 ### 1. Fork this repository
 
 Open [github.com/turbolego/iPad2Spotify](https://github.com/turbolego/iPad2Spotify) and select **Fork**. Choose your own GitHub account or organization and create the fork.
