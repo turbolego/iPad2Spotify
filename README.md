@@ -8,7 +8,7 @@ Since we need to use Vercel anyways, the webapp creates a shortcode for a "badge
 
 [![Last played on Spotify](https://ipad2spotify.vercel.app/api/badge/pszakw4nbafwexn.svg)](https://ipad2spotify.vercel.app/)
 
-<img width="2048" height="1536" alt="16575086-a7c7-4d9c-8d69-fe333fd9baf2" src="https://github.com/user-attachments/assets/be86356a-907a-4f3b-b0cd-2bd4d81a1b36" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/cb0c0bec-ef17-40f6-b6ff-782786272c0a" />
 
 
 ## What this project solves
