@@ -5,7 +5,11 @@ function trackSvg(title, artist, imageUrl) {
   var artwork = imageUrl
     ? '<image href="' + esc(imageUrl) + '" xlink:href="' + esc(imageUrl) + '" x="0" y="0" width="150" height="150" preserveAspectRatio="xMidYMid slice"/>'
     : '<rect width="150" height="150" fill="#27332b"/><text x="75" y="85" text-anchor="middle" fill="#b6d64b" font-size="48">♫</text>';
-  return '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="620" height="150" viewBox="0 0 620 150">' + artwork + '<rect x="150" width="470" height="150" fill="#1b231f"/><text x="175" y="38" fill="#b6d64b" font-family="Arial" font-size="13" letter-spacing="2">LAST PLAYED ON SPOTIFY</text><text x="175" y="78" fill="#f5f1e8" font-family="Arial" font-size="22" font-weight="bold">' + esc(title).slice(0, 52) + '</text><text x="175" y="108" fill="#c4ccc3" font-family="Arial" font-size="16">' + esc(artist).slice(0, 52) + '</text><text x="175" y="133" fill="#899389" font-family="Arial" font-size="11">Independent hobby project · not Spotify</text></svg>';
+  // Truncate raw strings before escaping so a slice never cuts an HTML entity
+  // in half (e.g. "&amp;" -> "&a") and produces invalid SVG/XML.
+  var safeTitle = esc(String(title || '').slice(0, 52));
+  var safeArtist = esc(String(artist || '').slice(0, 52));
+  return '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="620" height="150" viewBox="0 0 620 150">' + artwork + '<rect x="150" width="470" height="150" fill="#1b231f"/><text x="175" y="38" fill="#b6d64b" font-family="Arial" font-size="13" letter-spacing="2">LAST PLAYED ON SPOTIFY</text><text x="175" y="78" fill="#f5f1e8" font-family="Arial" font-size="22" font-weight="bold">' + safeTitle + '</text><text x="175" y="108" fill="#c4ccc3" font-family="Arial" font-size="16">' + safeArtist + '</text><text x="175" y="133" fill="#899389" font-family="Arial" font-size="11">Independent hobby project · not Spotify</text></svg>';
 }
 function sendSvg(res, svg) { res.statusCode = 200; res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8'); res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300'); res.setHeader('X-Content-Type-Options', 'nosniff'); res.end(svg); }
 // Render the cached `last:` snapshot. Every live-enrichment failure path
@@ -23,14 +27,18 @@ module.exports = function (req, res) {
     lib.kvGet('badge:' + key, function (err, badge) {
       if (err || !badge) return lib.json(res, 404, { error: 'Badge not found.' });
       lib.kvGet('last:' + badge.session, function (lastErr, track) {
-        // Only the absence of any cached `last:` record is treated as "the
-        // badge has never been used" — in that one case we render the empty
-        // placeholder. If a record exists at all, we always render it; live
-        // enrichment (which needs a track_id to call the Spotify API) is an
-        // optional upgrade on top, never a gate.
-        if (lastErr || !track) return sendSvg(res, emptySvg());
-        var cfg = lib.config(req);
+        // A storage error means we don't actually know whether the badge has
+        // ever been used, so we surface that as 503 instead of misleadingly
+        // rendering "No track observed yet". Only a confirmed-missing record
+        // (track is null/undefined) takes the empty-state branch.
+        if (lastErr) return lib.json(res, 503, { error: 'Last-played storage is unavailable.' });
+        if (!track) return sendSvg(res, emptySvg());
+        // Without a track_id we can't do live enrichment at all, so render
+        // the cached snapshot immediately. Deferring lib.config(req) until
+        // after this short-circuit keeps cached-only renders independent of
+        // the Spotify env vars.
         if (!track.track_id) return renderCached(res, track);
+        var cfg = lib.config(req);
         lib.kvGet('session:' + badge.session, function (sessionErr, session) {
           if (sessionErr || !session || !session.refresh_token) return renderCached(res, track);
           lib.spotifyToken(cfg, 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(session.refresh_token), function (tokenErr, tokenStatus, token) {

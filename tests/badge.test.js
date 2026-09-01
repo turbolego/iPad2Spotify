@@ -45,6 +45,21 @@ test('returns 404 when badge key is missing', function (t, done) {
   });
 });
 
+test('returns 503 when last-played storage errors', function (t, done) {
+  function erringKvGet(key, cb) {
+    if (key === 'badge:abc') return cb(null, { session: 'sid' });
+    return cb(new Error('kv down'));
+  }
+  var restore = stubLib({ rateLimit: notLimited, kvGet: erringKvGet });
+  var res = callBadge('abc');
+  setImmediate(function () {
+    restore();
+    assert.strictEqual(res.statusCode, 503);
+    assert.match(helpers.resBody(res).error, /storage/i);
+    done();
+  });
+});
+
 test('renders "No track observed yet" when no last-played track is cached', function (t, done) {
   var map = { 'badge:abc': { session: 'sid' } };
   var restore = stubLib({ rateLimit: notLimited, kvGet: kvGetMap(map) });
@@ -212,6 +227,41 @@ test('uses cached title/artist/image when track has no track_id', function (t, d
     // No track_id means live enrichment can't run, so cached snapshot renders.
     assert.match(res.body, /Just A Name/);
     assert.match(res.body, /Just An Artist/);
+    done();
+  });
+});
+
+test('truncates before escaping so a slice never splits an HTML entity', function (t, done) {
+  // The bug being guarded against: if we escape first, then slice, a raw
+  // "&" inflates from 1 char to 5 chars ("&amp;") after escaping. A naive
+  // slice(0, 52) on the escaped string can land inside that entity and
+  // produce broken XML like "...AAAA&amp" cut off mid-entity.
+  //
+  // To prove the test fails on the old code, place the raw "&" at index 51
+  // (right at the slice boundary). Raw: 51 As + "&" + 10 Bs (length 62).
+  // Escaped: 51 As + "&amp;" + 10 Bs (length 66). Buggy escape-then-slice
+  // cuts at position 52 of the escaped form, which is the second char of
+  // "&amp;" -> "A*51 + &a" (invalid XML, no "p;" or ";"). With the fix, the
+  // raw slice(0, 52) cuts cleanly at the "&" so the "&" itself is dropped.
+  var rawTitle = 'A'.repeat(51) + '&' + 'BBBBBBBBBB';
+  var map = {
+    'badge:abc': { session: 'sid' },
+    'last:sid': { track_id: '', track_name: rawTitle, artist_name: 'Some Artist', album_image_url: '' }
+  };
+  var restore = stubLib({ rateLimit: notLimited, kvGet: kvGetMap(map), config: cfgStatic });
+  var res = callBadge('abc');
+  setImmediate(function () {
+    restore();
+    assert.strictEqual(res.statusCode, 200);
+    // With the fix, the raw slice(0, 52) keeps the "&" at index 51, then
+    // escape converts it to "&amp;". The title is therefore 51 As followed
+    // by a complete "&amp;" entity — never a truncated entity like "&a"
+    // or "&&" or "&;".
+    var titleMatch = res.body.match(/<text x="175" y="78"[^>]*>([^<]*)<\/text>/);
+    assert.ok(titleMatch, 'expected a title text element in the badge');
+    assert.strictEqual(titleMatch[1], 'A'.repeat(51) + '&amp;', 'title must be 51 As + complete &amp; entity');
+    // The trailing B's must be dropped.
+    assert.doesNotMatch(titleMatch[1], /B/);
     done();
   });
 });
