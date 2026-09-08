@@ -48,6 +48,7 @@ function request(url, options, callback) {
     res.on('end', function () { var text = Buffer.concat(chunks).toString('utf8'), data = null; try { data = JSON.parse(text); } catch (e) {} callback(null, res.statusCode, data, text); });
   });
   req.on('error', function (err) { callback(err); });
+  req.setTimeout(20000, function () { req.abort(); callback(new Error('Upstream request timed out.')); });
   if (options.body) req.write(options.body);
   req.end();
 }

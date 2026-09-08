@@ -1,0 +1,77 @@
+name: Spotify User-Token Search Diagnostic
+on:
+  workflow_dispatch:
+    inputs:
+      refresh_token:
+        description: 'Optional Spotify user refresh_token. If blank, runs client_credentials control only.'
+        required: false
+        default: ''
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Get client-credentials token (control)
+        id: cc
+        env:
+          ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        run: |
+          TOKEN=$(curl -s --max-time 20 -u "${ID}:${SECRET}" \
+            -d grant_type=client_credentials \
+            https://accounts.spotify.com/api/token | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).access_token||''))")
+          [ -n "$TOKEN" ] || { echo "client_credentials TOKEN_EXCHANGE_FAILED"; exit 1; }
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Control - search type=playlist via client_credentials
+        env:
+          TOKEN: ${{ steps.cc.outputs.token }}
+        run: |
+          echo "== client_credentials search type=playlist 'autumn affection' =="
+          curl -s --max-time 30 -w "\nHTTP:%{http_code} TIME:%{time_total}s\n" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            "https://api.spotify.com/v1/search?type=playlist&limit=8&q=autumn%20affection"
+
+      - name: Exchange refresh_token -> user token
+        id: user
+        if: ${{ github.event.inputs.refresh_token != '' }}
+        env:
+          REFRESH: ${{ github.event.inputs.refresh_token }}
+          ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        run: |
+          echo "== user token exchange (grant_type=refresh_token) =="
+          RESP=$(curl -s --max-time 30 \
+            -u "${ID}:${SECRET}" \
+            -d "grant_type=refresh_token&refresh_token=${REFRESH}" \
+            https://accounts.spotify.com/api/token)
+          echo "$RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const o=JSON.parse(d);if(o.access_token){console.log('USER_TOKEN_OK');console.log('SCOPE='+(o.scope||''));process.stdout.write('token='+o.access_token)}else{console.log('USER_TOKEN_EXCHANGE_FAILED:',JSON.stringify(o));process.exit(1)}})" 
+          # extract token to GITHUB_OUTPUT via a temp parse
+          T=$(echo "$RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).access_token||''))")
+          echo "token=$T" >> "$GITHUB_OUTPUT"
+
+      - name: User-token search type=artist (control)
+        if: ${{ steps.user.outputs.token != '' }}
+        env:
+          TOKEN: ${{ steps.user.outputs.token }}
+        run: |
+          echo "== USER token search type=artist =="
+          curl -s --max-time 30 -w "\nHTTP:%{http_code} TIME:%{time_total}s\n" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            "https://api.spotify.com/v1/search?type=artist&limit=8&q=autumn"
+
+      - name: User-token search type=playlist (the bug target)
+        if: ${{ steps.user.outputs.token != '' }}
+        env:
+          TOKEN: ${{ steps.user.outputs.token }}
+        run: |
+          echo "== USER token search type=playlist 'autumn affection' =="
+          curl -s --max-time 30 -w "\nHTTP:%{http_code} TIME:%{time_total}s\n" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            "https://api.spotify.com/v1/search?type=playlist&limit=8&q=autumn%20affection"
+          echo ""
+          echo "== also check an empty-item / malformed query to force empty playlist path =="
+          curl -s --max-time 30 -w "\nHTTP:%{http_code} TIME:%{time_total}s\n" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            "https://api.spotify.com/v1/search?type=playlist&limit=8&q=zzzzzznonexistent"
