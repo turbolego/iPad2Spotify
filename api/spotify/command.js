@@ -1,7 +1,7 @@
 var lib = require('../_lib');
 var paths = { play: ['PUT', '/me/player/play'], pause: ['PUT', '/me/player/pause'], next: ['POST', '/me/player/next'], previous: ['POST', '/me/player/previous'] };
-function artistIdFrom(body) {
-  return body && typeof body.artist_id === 'string' && /^[A-Za-z0-9]{10,30}$/.test(body.artist_id) ? body.artist_id : null;
+function idFrom(body, key) {
+  return body && typeof body[key] === 'string' && /^[A-Za-z0-9]{10,30}$/.test(body[key]) ? body[key] : null;
 }
 function spotifyErrorMessage(data) {
   var err = data && data.error;
@@ -29,16 +29,17 @@ module.exports = function (req, res) {
   if (!sid) return lib.json(res, 401, { error: 'Pair this fullscreen app first.' });
   lib.readBody(req, function (raw) { var body; try { body = JSON.parse(raw); } catch (e) {}
     var isArtist = body && body.action === 'play_artist';
-    var artistId = isArtist ? artistIdFrom(body) : null;
-    if (isArtist && !artistId) return lib.json(res, 400, { error: 'Unknown artist.' });
-    var target = !isArtist && paths[body && body.action];
-    if (!isArtist && !target) return lib.json(res, 400, { error: 'Unknown playback command.' });
+    var isPlaylist = body && body.action === 'play_playlist';
+    var target = !isArtist && !isPlaylist && paths[body && body.action];
+    var actionId = (isArtist ? idFrom(body, 'artist_id') : isPlaylist ? idFrom(body, 'playlist_id') : null);
+    if ((isArtist || isPlaylist) && !actionId) return lib.json(res, 400, { error: 'Unknown ' + (isArtist ? 'artist' : 'playlist') + '.' });
+    if (!isArtist && !isPlaylist && !target) return lib.json(res, 400, { error: 'Unknown playback command.' });
     lib.kvGet('session:' + sid, function (err, session) { if (err || !session) return lib.json(res, 401, { error: 'Session expired. Pair again.' }); var cfg = lib.config(req); lib.spotifyToken(cfg, 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(session.refresh_token), function (tokenErr, tokenStatus, token) { if (tokenErr || tokenStatus !== 200 || !token.access_token) return lib.json(res, 401, { error: 'Spotify authorization expired.' });
       findDeviceId(token.access_token, function (deviceId) {
-        var method = isArtist ? 'PUT' : target[0];
-        var path = isArtist ? '/me/player/play' : target[1];
+        var method = (isArtist || isPlaylist) ? 'PUT' : target[0];
+        var path = (isArtist || isPlaylist) ? '/me/player/play' : target[1];
         if (deviceId) path += (path.indexOf('?') === -1 ? '?' : '&') + 'device_id=' + encodeURIComponent(deviceId);
-        var payload = isArtist ? JSON.stringify({ context_uri: 'spotify:artist:' + artistId }) : null;
+        var payload = isArtist ? JSON.stringify({ context_uri: 'spotify:artist:' + actionId }) : isPlaylist ? JSON.stringify({ context_uri: 'spotify:playlist:' + actionId }) : null;
         var headers = { Authorization: 'Bearer ' + token.access_token };
         if (payload) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(payload); } else { headers['Content-Length'] = 0; }
         lib.request('https://api.spotify.com/v1' + path, { method: method, headers: headers, body: payload }, function (apiErr, status, data) {

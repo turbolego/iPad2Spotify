@@ -1,0 +1,69 @@
+var test = require('node:test');
+var assert = require('node:assert');
+var path = require('node:path');
+var helpers = require('./helpers');
+
+var lib = require(path.join('..', 'api', '_lib.js'));
+var searchPlaylist = require(path.join('..', 'api', 'spotify', 'search-playlist.js'));
+
+function stubLib(overrides) {
+  var originals = {};
+  Object.keys(overrides).forEach(function (key) { originals[key] = lib[key]; lib[key] = overrides[key]; });
+  return function restore() { Object.keys(originals).forEach(function (key) { lib[key] = originals[key]; }); };
+}
+
+function notLimited(req, bucket, limit, seconds, cb) { cb(null, false); }
+function validSession(key, cb) { cb(null, { refresh_token: 'refresh-token' }); }
+function validToken(cfg, body, cb) { cb(null, 200, { access_token: 'access-token' }); }
+
+test('rejects non-GET requests with 405', function () {
+  var res = helpers.fakeRes();
+  searchPlaylist(helpers.fakeReq('POST', '/api/spotify/search-playlist'), res);
+  assert.strictEqual(res.statusCode, 405);
+});
+
+test('requires a paired session cookie', function () {
+  var restore = stubLib({ rateLimit: notLimited });
+  var res = helpers.fakeRes();
+  searchPlaylist(helpers.fakeReq('GET', '/api/spotify/search-playlist?q=Lofoten'), res);
+  restore();
+  assert.strictEqual(res.statusCode, 401);
+});
+
+test('rejects an empty search query', function () {
+  var restore = stubLib({ rateLimit: notLimited });
+  var res = helpers.fakeRes();
+  searchPlaylist(helpers.fakeReq('GET', '/api/spotify/search-playlist?q=', 'spotify_session=sid'), res);
+  restore();
+  assert.strictEqual(res.statusCode, 400);
+});
+
+test('returns mapped playlist results for a valid query', function () {
+  var calledUrl = null;
+  var restore = stubLib({
+    rateLimit: notLimited, kvGet: validSession, spotifyToken: validToken,
+    request: function (url, options, cb) {
+      calledUrl = url;
+      cb(null, 200, { playlists: { items: [{ id: 'pl-123', name: 'Nordic Hits', images: [{ url: 'big.jpg' }, { url: 'small.jpg' }] }] } });
+    }
+  });
+  var res = helpers.fakeRes();
+  searchPlaylist(helpers.fakeReq('GET', '/api/spotify/search-playlist?q=Nordic%20Hits', 'spotify_session=sid'), res);
+  restore();
+  assert.match(calledUrl, /type=playlist/);
+  assert.match(calledUrl, /q=Nordic%20Hits/);
+  assert.strictEqual(res.statusCode, 200);
+  var body = helpers.resBody(res);
+  assert.strictEqual(body.playlists.length, 1);
+  assert.strictEqual(body.playlists[0].id, 'pl-123');
+  assert.strictEqual(body.playlists[0].name, 'Nordic Hits');
+  assert.strictEqual(body.playlists[0].image, 'small.jpg');
+});
+
+test('returns 429 when rate limited', function () {
+  var restore = stubLib({ rateLimit: function (req, bucket, limit, seconds, cb) { cb(null, true); } });
+  var res = helpers.fakeRes();
+  searchPlaylist(helpers.fakeReq('GET', '/api/spotify/search-playlist?q=Nordic', 'spotify_session=sid'), res);
+  restore();
+  assert.strictEqual(res.statusCode, 429);
+});

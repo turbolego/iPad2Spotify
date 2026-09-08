@@ -51,6 +51,33 @@ test('rejects play_artist with an invalid artist id', function () {
   assert.match(helpers.resBody(res).error, /artist/i);
 });
 
+test('rejects play_playlist with an invalid playlist id', function () {
+  var restore = stubLib({ rateLimit: notLimited });
+  var res = helpers.fakeRes();
+  command(helpers.fakeReq('POST', '/api/spotify/command', 'spotify_session=sid', { action: 'play_playlist', playlist_id: '../etc/passwd' }), res);
+  restore();
+  assert.strictEqual(res.statusCode, 400);
+  assert.match(helpers.resBody(res).error, /playlist/i);
+});
+
+test('starts a playlist with a valid playlist id via playlist context_uri', function (t, done) {
+  var calledWith = null;
+  var restore = stubLib({
+    rateLimit: notLimited, kvGet: validSession, spotifyToken: validToken,
+    request: function (url, options, cb) { calledWith = { url: url, options: options }; cb(null, 204, null); }
+  });
+  var res = helpers.fakeRes();
+  command(helpers.fakeReq('POST', '/api/spotify/command', 'spotify_session=sid', { action: 'play_playlist', playlist_id: '37i9dQZF1DX4JAvHpjipBk' }), res);
+  setImmediate(function () {
+    restore();
+    assert.strictEqual(calledWith.url, 'https://api.spotify.com/v1/me/player/play');
+    assert.strictEqual(calledWith.options.method, 'PUT');
+    assert.deepStrictEqual(JSON.parse(calledWith.options.body), { context_uri: 'spotify:playlist:37i9dQZF1DX4JAvHpjipBk' });
+    assert.strictEqual(res.statusCode, 200);
+    done();
+  });
+});
+
 test('proxies a known action to the matching Spotify endpoint', function (t, done) {
   var calledWith = null;
   var restore = stubLib({
