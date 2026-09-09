@@ -36,6 +36,8 @@ jobs:
             -d grant_type=client_credentials \
             https://accounts.spotify.com/api/token | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).access_token||''))")
           [ -n "$TOKEN" ] || { echo "client_credentials TOKEN_EXCHANGE_FAILED"; exit 1; }
+          # Mask the bearer token so it never appears even with step debugging enabled.
+          echo "::add-mask::$TOKEN"
           echo "=== client token acquired (not printing) ==="
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
@@ -66,8 +68,10 @@ jobs:
             let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
               let o; try{ o=JSON.parse(d); }catch(e){ console.log('USER_TOKEN_PARSE_FAILED'); process.exit(1); }
               if(o.access_token){ console.log('USER_TOKEN_OK'); console.log('SCOPE='+(o.scope||''));
-                // pass token downstream via GITHUB_OUTPUT, never stdout
-                const fs=require('fs'); fs.appendFileSync(process.env.GITHUB_OUTPUT,'token='+o.access_token+'\n');
+                // mask the user bearer token too, then pass downstream via GITHUB_OUTPUT (never stdout)
+                const fs=require('fs');
+                console.log('::add-mask::'+o.access_token);
+                fs.appendFileSync(process.env.GITHUB_OUTPUT,'token='+o.access_token+'\n');
               } else { console.log('USER_TOKEN_EXCHANGE_FAILED:', JSON.stringify(o.error||o)); process.exit(1); }
             });"
 
