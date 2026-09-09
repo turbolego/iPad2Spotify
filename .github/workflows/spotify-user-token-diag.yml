@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       refresh_token:
-        description: 'Optional Spotify user refresh_token. If blank, runs client_credentials control only.'
+        description: 'Optional Spotify user refresh_token (NOT a secret; prefer setting SPOTIFY_REFRESH_TOKEN repo secret). If blank, the repo secret is used. If both blank, runs client_credentials control only.'
         required: false
         default: ''
 
@@ -11,17 +11,32 @@ jobs:
   search:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    env:
+      # Source the refresh_token from a repo SECRET (never trusted via a non-secret
+      # workflow_dispatch input). Input is a fallback ONLY; a pasted input is visible
+      # in run metadata and should only be used in a private repo context.
+      REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN || github.event.inputs.refresh_token }}
     steps:
+      - name: Ensure no token in logs
+        run: |
+          echo "::add-mask::$REFRESH_TOKEN"
+          echo "Using refresh token? $([ -n "$REFRESH_TOKEN" ] && echo yes || echo no)"
+
       - name: Get client-credentials token (control)
         id: cc
         env:
           ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: |
+          # Never echo the token. Write it to GITHUB_OUTPUT only for downstream Bearer use.
+          if [ -z "$REFRESH_TOKEN" ] || [ "$REFRESH_TOKEN" = "''" ]; then
+            echo "REFRESH_TOKEN empty -> running control only"
+          fi
           TOKEN=$(curl -s --max-time 20 -u "${ID}:${SECRET}" \
             -d grant_type=client_credentials \
             https://accounts.spotify.com/api/token | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).access_token||''))")
           [ -n "$TOKEN" ] || { echo "client_credentials TOKEN_EXCHANGE_FAILED"; exit 1; }
+          echo "=== client token acquired (not printing) ==="
           echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
 
       - name: Control - search type=playlist via client_credentials
@@ -33,11 +48,11 @@ jobs:
             -H "Authorization: Bearer ${TOKEN}" \
             "https://api.spotify.com/v1/search?type=playlist&limit=8&q=autumn%20affection"
 
-      - name: Exchange refresh_token -> user token
+      - name: Exchange refresh_token -> user token (token NOT logged)
         id: user
-        if: ${{ github.event.inputs.refresh_token != '' }}
+        if: ${{ env.REFRESH_TOKEN != '' }}
         env:
-          REFRESH: ${{ github.event.inputs.refresh_token }}
+          REFRESH: ${{ env.REFRESH_TOKEN }}
           ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: |
@@ -46,10 +61,15 @@ jobs:
             -u "${ID}:${SECRET}" \
             -d "grant_type=refresh_token&refresh_token=${REFRESH}" \
             https://accounts.spotify.com/api/token)
-          echo "$RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const o=JSON.parse(d);if(o.access_token){console.log('USER_TOKEN_OK');console.log('SCOPE='+(o.scope||''));process.stdout.write('token='+o.access_token)}else{console.log('USER_TOKEN_EXCHANGE_FAILED:',JSON.stringify(o));process.exit(1)}})" 
-          # extract token to GITHUB_OUTPUT via a temp parse
-          T=$(echo "$RESP" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).access_token||''))")
-          echo "token=$T" >> "$GITHUB_OUTPUT"
+          # Parse WITHOUT printing the access token. Log only non-sensitive status/scope.
+          printf '%s' "$RESP" | node -e "
+            let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
+              let o; try{ o=JSON.parse(d); }catch(e){ console.log('USER_TOKEN_PARSE_FAILED'); process.exit(1); }
+              if(o.access_token){ console.log('USER_TOKEN_OK'); console.log('SCOPE='+(o.scope||''));
+                // pass token downstream via GITHUB_OUTPUT, never stdout
+                const fs=require('fs'); fs.appendFileSync(process.env.GITHUB_OUTPUT,'token='+o.access_token+'\n');
+              } else { console.log('USER_TOKEN_EXCHANGE_FAILED:', JSON.stringify(o.error||o)); process.exit(1); }
+            });"
 
       - name: User-token search type=artist (control)
         if: ${{ steps.user.outputs.token != '' }}
