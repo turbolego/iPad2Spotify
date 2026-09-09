@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       refresh_token:
-        description: 'Optional Spotify user refresh_token (NOT a secret; prefer setting SPOTIFY_REFRESH_TOKEN repo secret). If blank, the repo secret is used. If both blank, runs client_credentials control only.'
+        description: 'Optional Spotify user refresh_token for the user-token diagnostic. The value is masked and never printed to logs. If blank, runs client_credentials control only.'
         required: false
         default: ''
 
@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      # Source the refresh_token from a repo SECRET (never trusted via a non-secret
-      # workflow_dispatch input). Input is a fallback ONLY; a pasted input is visible
-      # in run metadata and should only be used in a private repo context.
-      REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN || github.event.inputs.refresh_token }}
+      # The user refresh_token comes from the workflow_dispatch input (the only source —
+      # this repo has no refresh-token secret). It is masked and written only to
+      # $GITHUB_OUTPUT downstream, never echoed to run logs.
+      REFRESH_TOKEN: ${{ github.event.inputs.refresh_token }}
     steps:
       - name: Ensure no token in logs
         run: |
