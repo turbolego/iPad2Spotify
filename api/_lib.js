@@ -42,12 +42,20 @@ function redirect(res, location) { securityHeaders(res); res.statusCode = 302; r
 function origin(req) { return (process.env.APP_ORIGIN || ('https://' + req.headers.host)).replace(/\/$/, ''); }
 function config(req) { return { id: process.env.SPOTIFY_CLIENT_ID, secret: process.env.SPOTIFY_CLIENT_SECRET, redirect: origin(req) + '/api/auth/callback' }; }
 function request(url, options, callback) {
+  var called = false;
+  function done(err, status, data, text) {
+    if (called) return; called = true;
+    callback(err, status, data, text);
+  }
   var https = require('https'), parsed = require('url').parse(url), req = https.request({ hostname: parsed.hostname, path: parsed.path, method: options.method || 'GET', headers: options.headers || {} }, function (res) {
     var chunks = [];
     res.on('data', function (chunk) { chunks.push(chunk); });
-    res.on('end', function () { var text = Buffer.concat(chunks).toString('utf8'), data = null; try { data = JSON.parse(text); } catch (e) {} callback(null, res.statusCode, data, text); });
+    res.on('end', function () { var text = Buffer.concat(chunks).toString('utf8'), data = null; try { data = JSON.parse(text); } catch (e) {} done(null, res.statusCode, data, text); });
+    res.on('error', function (err) { done(err); });
+    res.on('aborted', function () { done(new Error('Request aborted.')); });
   });
-  req.on('error', function (err) { callback(err); });
+  req.on('error', function (err) { done(err); });
+  req.setTimeout(20000, function () { req.destroy(new Error('Upstream request timed out.')); });
   if (options.body) req.write(options.body);
   req.end();
 }
@@ -56,7 +64,14 @@ function spotifyToken(cfg, body, callback) {
   request('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Authorization': 'Basic ' + encoded, 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) }, body: body }, callback);
 }
 function requestBuffer(url, options, callback) {
-  var https = require('https'), parsed = require('url').parse(url), req = https.request({ hostname: parsed.hostname, path: parsed.path, method: options.method || 'GET', headers: options.headers || {} }, function (res) { var chunks = []; res.on('data', function (chunk) { chunks.push(chunk); }); res.on('end', function () { callback(null, res.statusCode, Buffer.concat(chunks), res.headers); }); });
-  req.on('error', function (err) { callback(err); }); req.end();
+  var called = false;
+  function done(err, status, data, headers) {
+    if (called) return; called = true;
+    callback(err, status, data, headers);
+  }
+  var https = require('https'), parsed = require('url').parse(url), req = https.request({ hostname: parsed.hostname, path: parsed.path, method: options.method || 'GET', headers: options.headers || {} }, function (res) { var chunks = []; res.on('data', function (chunk) { chunks.push(chunk); }); res.on('end', function () { done(null, res.statusCode, Buffer.concat(chunks), res.headers); }); res.on('error', function (err) { done(err); }); res.on('aborted', function () { done(new Error('Request aborted.')); }); });
+  req.on('error', function (err) { done(err); });
+  req.setTimeout(20000, function () { req.destroy(new Error('Upstream request timed out.')); });
+  req.end();
 }
 module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, pairingCode: pairingCode, redirect: redirect, config: config, origin: origin, request: request, requestBuffer: requestBuffer, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
