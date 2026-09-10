@@ -12,10 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      # The user refresh_token comes from the workflow_dispatch input (the only source —
-      # this repo has no refresh-token secret). It is masked and written only to
-      # $GITHUB_OUTPUT downstream, never echoed to run logs.
-      REFRESH_TOKEN: ${{ github.event.inputs.refresh_token }}
+      # Prefer a repository secret (not visible in run metadata). Fall back to
+      # the workflow_dispatch input when the secret is not set.
+      REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN || github.event.inputs.refresh_token }}
     steps:
       - name: Ensure no token in logs
         run: |
