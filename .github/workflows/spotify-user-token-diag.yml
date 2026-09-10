@@ -12,9 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      # Prefer a repository secret (not visible in run metadata). Fall back to
-      # the workflow_dispatch input when the secret is not set.
-      REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN || github.event.inputs.refresh_token }}
+      REFRESH_TOKEN: ${{ github.event.inputs.refresh_token }}
     steps:
       - name: Ensure no token in logs
         run: |
@@ -60,7 +58,8 @@ jobs:
           echo "== user token exchange (grant_type=refresh_token) =="
           RESP=$(curl -s --max-time 30 \
             -u "${ID}:${SECRET}" \
-            -d "grant_type=refresh_token&refresh_token=${REFRESH}" \
+            --data-urlencode "grant_type=refresh_token" \
+            --data-urlencode "refresh_token=${REFRESH}" \
             https://accounts.spotify.com/api/token)
           # Parse WITHOUT printing the access token. Log only non-sensitive status/scope.
           printf '%s' "$RESP" | node -e "
