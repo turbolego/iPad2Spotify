@@ -51,6 +51,8 @@ function request(url, options, callback) {
     var chunks = [];
     res.on('data', function (chunk) { chunks.push(chunk); });
     res.on('end', function () { var text = Buffer.concat(chunks).toString('utf8'), data = null; try { data = JSON.parse(text); } catch (e) {} done(null, res.statusCode, data, text); });
+    res.on('error', function (err) { done(err); });
+    res.on('aborted', function () { done(new Error('Request aborted.')); });
   });
   req.on('error', function (err) { done(err); });
   req.setTimeout(20000, function () { req.destroy(new Error('Upstream request timed out.')); });
@@ -67,7 +69,7 @@ function requestBuffer(url, options, callback) {
     if (called) return; called = true;
     callback(err, status, data, headers);
   }
-  var https = require('https'), parsed = require('url').parse(url), req = https.request({ hostname: parsed.hostname, path: parsed.path, method: options.method || 'GET', headers: options.headers || {} }, function (res) { var chunks = []; res.on('data', function (chunk) { chunks.push(chunk); }); res.on('end', function () { done(null, res.statusCode, Buffer.concat(chunks), res.headers); }); });
+  var https = require('https'), parsed = require('url').parse(url), req = https.request({ hostname: parsed.hostname, path: parsed.path, method: options.method || 'GET', headers: options.headers || {} }, function (res) { var chunks = []; res.on('data', function (chunk) { chunks.push(chunk); }); res.on('end', function () { done(null, res.statusCode, Buffer.concat(chunks), res.headers); }); res.on('error', function (err) { done(err); }); res.on('aborted', function () { done(new Error('Request aborted.')); }); });
   req.on('error', function (err) { done(err); });
   req.setTimeout(20000, function () { req.destroy(new Error('Upstream request timed out.')); });
   req.end();

@@ -2,8 +2,8 @@ name: Spotify User-Token Search Diagnostic
 on:
   workflow_dispatch:
     inputs:
-      refresh_token:
-        description: 'Optional Spotify user refresh_token for the user-token diagnostic. The value is masked and never printed to logs. If blank, runs client_credentials control only.'
+      refresh_token_input:
+        description: 'Optional Spotify user refresh_token (read as SPOTIFY_USER_REFRESH_TOKEN secret first, or input only if secret not set). This is a long-lived credential and should be treated as a secret.'
         required: false
         default: ''
 
@@ -12,7 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
-      REFRESH_TOKEN: ${{ github.event.inputs.refresh_token }}
+      # Prefer secret over input for credential safety
+      REFRESH_TOKEN: ${{ secrets.SPOTIFY_USER_REFRESH_TOKEN || github.event.inputs.refresh_token_input }}
     steps:
       - name: Ensure no token in logs
         run: |
@@ -47,7 +48,7 @@ jobs:
             -H "Authorization: Bearer ${TOKEN}" \
             "https://api.spotify.com/v1/search?type=playlist&limit=8&q=autumn%20affection"
 
-      - name: Exchange refresh_token -> user token (token NOT logged)
+      - name: Exchange refresh_token -> user token (token masked)
         id: user
         if: ${{ env.REFRESH_TOKEN != '' }}
         env:
