@@ -1,0 +1,80 @@
+name: Debug Spotify Search
+on:
+  workflow_dispatch:
+jobs:
+  test-search:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install deps
+        run: npm ci
+      - name: Test artist search
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        run: |
+          node -e "
+            const lib = require('./api/_lib.js');
+            const kv = require('./api/_kv.js');
+            // mock kvGet and kvSet for client credentials
+            const mockKv = { kvGet: (key, cb) => cb(null, { refresh_token: 'mock' }), kvSet: () => {}, kvDel: () => {} };
+            // we need to actually get a token via client credentials, so we'll just hit token endpoint directly
+            const https = require('https');
+            const getToken = (clientId, clientSecret) => new Promise((resolve, reject) => {
+              const auth = Buffer.from(clientId + ':' + clientSecret).toString('base64');
+              const options = {
+                hostname: 'accounts.spotify.com',
+                path: '/api/token',
+                method: 'POST',
+                headers: {
+                  'Authorization': 'Basic ' + auth,
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                }
+              };
+              const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                  try { resolve(JSON.parse(data).access_token); } catch(e) { reject(e); }
+                });
+              });
+              req.on('error', reject);
+              req.write('grant_type=client_credentials');
+              req.end();
+            });
+            getToken(process.env.SPOTIFY_CLIENT_ID, process.env.SPOTIFY_CLIENT_SECRET)
+              .then(token => {
+                console.log('Got token');
+                const search = (type, q) => new Promise((resolve, reject) => {
+                  const url = new URL('https://api.spotify.com/v1/search');
+                  url.searchParams.set('type', type);
+                  url.searchParams.set('q', q);
+                  url.searchParams.set('limit', '5');
+                  url.searchParams.set('market', 'NO');
+                  const opts = {
+                    hostname: url.hostname,
+                    path: url.pathname + '?' + url.search,
+                    method: 'GET',
+                    headers: { Authorization: 'Bearer ' + token }
+                  };
+                  const req = https.request(opts, (res) => {
+                    let data = '';
+                    res.on('data', chunk => data += chunk);
+                    res.on('end', () => {
+                      try { resolve(JSON.parse(data)); } catch(e) { reject(e); }
+                    });
+                  });
+                  req.on('error', reject);
+                  req.end();
+                });
+                return Promise.all([
+                  search('artist', 'Billie Holiday').then(r => console.log('Artist search results:', r.artists?.items?.length ?? 0)),
+                  search('playlist', 'Nordic Hits').then(r => console.log('Playlist search results:', r.playlists?.items?.length ?? 0))
+                ]);
+              })
+              .catch(err => { console.error('Error:', err); process.exit(1); });
+          "
