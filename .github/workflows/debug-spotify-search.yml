@@ -1,0 +1,228 @@
+name: Debug Spotify Search
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-search:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Debug Spotify Search
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        run: |
+          node -e "
+            const https = require('https');
+            
+            // Helper function to make HTTP requests
+            const makeRequest = (hostname, path, method, headers, body) => {
+              return new Promise((resolve, reject) => {
+                const options = {
+                  hostname: hostname,
+                  path: path,
+                  method: method,
+                  headers: headers
+                };
+                
+                const req = https.request(options, (res) => {
+                  let data = '';
+                  res.on('data', chunk => data += chunk);
+                  res.on('end', () => {
+                    try {
+                      const parsed = JSON.parse(data);
+                      resolve({ status: res.statusCode, data: parsed, raw: data });
+                    } catch(e) {
+                      reject(new Error('Failed to parse JSON: ' + e.message + ' raw: ' + data.substring(0, 200)));
+                    }
+                  });
+                });
+                
+                req.on('error', reject);
+                
+                if (body) {
+                  req.write(body);
+                }
+                req.end();
+              });
+            };
+            
+            // Get token using client credentials (same as what the webapp does for some operations)
+            async function getClientCredentialsToken() {
+              console.log('Getting Spotify token via client credentials...');
+              const auth = Buffer.from(process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRET).toString('base64');
+              const result = await makeRequest(
+                'accounts.spotify.com',
+                '/api/token',
+                'POST',
+                {
+                  'Authorization': 'Basic ' + auth,
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                'grant_type=client_credentials'
+              );
+              if (result.status !== 200) {
+                throw new Error('Token request failed: status ' + result.status);
+              }
+              console.log('Token acquired successfully');
+              return result.data.access_token;
+            }
+            
+            // Test search function
+            async function testSearch(type, query, limit = 5, market = 'NO') {
+              console.log(\`\\nTesting \${type} search for \"\${query}\"...\`);
+              console.log(\`URL will be: /v1/search?type=\${type}&limit=\${limit}&market=\${market}&q=\${encodeURIComponent(query)}\`);
+              
+              const path = \`/v1/search?type=\${type}&limit=\${limit}&market=\${market}&q=\${encodeURIComponent(query)}\`;
+              const startTime = Date.now();
+              
+              const result = await makeRequest(
+                'api.spotify.com',
+                path,
+                'GET',
+                {
+                  'Authorization': 'Bearer ' + token
+                }
+              );
+              
+              const elapsed = Date.now() - startTime;
+              console.log(\`Response status: \${result.status} in \${elapsed}ms\`);
+              
+              if (result.status !== 200) {
+                console.log(\`ERROR: Status \${result.status}\`);
+                if (result.data && result.data.error) {
+                  console.log(\`Spotify error: \${JSON.stringify(result.data.error)}\`);
+                }
+                return { success: false, status: result.status, elapsed };
+              }
+              
+              const items = result.data[type + 's']?.items || [];
+              console.log(\`Found \${items.length} \${type} results\`);
+              
+              if (type === 'playlist') {
+                items.slice(0, 3).forEach((p, i) => {
+                  console.log(\`  \${i+1}. \${p.name} (owner: \${p.owner?.display_name || 'unknown'})\`);
+                });
+              } else {
+                items.slice(0, 3).forEach((a, i) => {
+                  console.log(\`  \${i+1}. \${a.name}\`);
+                });
+              }
+              
+              return { success: true, status: result.status, items: items.length, elapsed };
+            }
+            
+            // Main execution
+            (async () => {
+              try {
+                const token = await getClientCredentialsToken();
+                console.log('Token ready, starting search tests...');
+                
+                // Test artist search
+                const artistResult = await testSearch('artist', 'Billie Holiday');
+                
+                // Test playlist search
+                const playlistResult = await testSearch('playlist', 'Nordic Hits');
+                
+                console.log('\\n=== SUMMARY ===');
+                console.log('Artist search: ' + (artistResult.success ? 'SUCCESS' : 'FAILED') + ' in ' + artistResult.elapsed + 'ms');
+                console.log('Playlist search: ' + (playlistResult.success ? 'SUCCESS' : 'FAILED') + ' in ' + playlistResult.elapsed + 'ms');
+                
+                if (!artistResult.success || !playlistResult.success) {
+                  console.log('\\n!!! One or more searches failed !!!');
+                  process.exit(1);
+                }
+                
+                console.log('\\nAll searches completed successfully');
+              } catch (error) {
+                console.error('\\n!!! WORKFLOW ERROR !!!');
+                console.error(error.message);
+                console.error(error.stack);
+                process.exit(1);
+              }
+            })();
+          "
+
+      - name: Test with higher limit (simulating webapp behavior)
+        if: success()
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        run: |
+          node -e "
+            const https = require('https');
+            
+            const makeRequest = (hostname, path, method, headers, body, timeout = 20000) => {
+              return new Promise((resolve, reject) => {
+                const req = https.request({ hostname, path, method, headers }, (res) => {
+                  let data = '';
+                  res.on('data', chunk => data += chunk);
+                  res.on('end', () => {
+                    try {
+                      resolve({ status: res.statusCode, data: JSON.parse(data) });
+                    } catch(e) {
+                      reject(new Error('JSON parse error: ' + e.message));
+                    }
+                  });
+                });
+                req.on('error', reject);
+                req.setTimeout(timeout, () => {
+                  req.destroy(new Error('Request timeout after ' + timeout + 'ms'));
+                });
+                if (body) req.write(body);
+                req.end();
+              });
+            };
+            
+            const getToken = async () => {
+              const auth = Buffer.from(process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRET).toString('base64');
+              const r = await makeRequest('accounts.spotify.com', '/api/token', 'POST', {
+                Authorization: 'Basic ' + auth,
+                'Content-Type': 'application/x-www-form-urlencoded'
+              }, 'grant_type=client_credentials');
+              return r.data.access_token;
+            };
+            
+            (async () => {
+              try {
+                const token = await getToken();
+                console.log('Token acquired');
+                
+                // Test with limit=8 and market=NO (current config)
+                console.log('\\nTesting with limit=8, market=NO...');
+                const r1 = await makeRequest('api.spotify.com', '/v1/search?type=playlist&limit=8&market=NO&q=test', 'GET', {
+                  Authorization: 'Bearer ' + token
+                });
+                console.log('Response:', r1.status, 'items:', r1.data.playlists?.items?.length || 0);
+                
+                // Test with limit=5 (reduced for faster response)
+                console.log('\\nTesting with limit=5, market=NO...');
+                const r2 = await makeRequest('api.spotify.com', '/v1/search?type=playlist&limit=5&market=NO&q=test', 'GET', {
+                  Authorization: 'Bearer ' + token
+                });
+                console.log('Response:', r2.status, 'items:', r2.data.playlists?.items?.length || 0);
+                
+                // Test artist for comparison
+                console.log('\\nTesting artist search...');
+                const r3 = await makeRequest('api.spotify.com', '/v1/search?type=artist&limit=8&market=NO&q=test', 'GET', {
+                  Authorization: 'Bearer ' + token
+                });
+                console.log('Response:', r3.status, 'items:', r3.data.artists?.items?.length || 0);
+                
+                console.log('\\nDebug complete!');
+              } catch(e) {
+                console.error('Error:', e.message);
+                process.exit(1);
+              }
+            })();
+          "
