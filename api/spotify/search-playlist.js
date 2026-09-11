@@ -14,7 +14,9 @@ module.exports = function (req, res) {
       lib.spotifyToken(cfg, 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(session.refresh_token), function (tokenErr, tokenStatus, token) {
         if (tokenErr || tokenStatus !== 200 || !token.access_token) return lib.json(res, 401, { error: 'Spotify authorization expired. Pair again.' });
         var url = 'https://api.spotify.com/v1/search?type=playlist&limit=8&market=NO&q=' + encodeURIComponent(q);
+        console.log('Starting playlist search request: ' + url);
         lib.request(url, { headers: { Authorization: 'Bearer ' + token.access_token } }, function (apiErr, status, data) {
+        console.log('Playlist search request completed with status: ' + status);
           if (apiErr) return lib.json(res, 502, { error: 'Spotify request failed.' });
           if (status !== 200) return lib.json(res, status, data || { error: 'Spotify request failed.' });
           var items = (data.playlists && data.playlists.items) || [];

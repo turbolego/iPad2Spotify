@@ -55,7 +55,7 @@ function request(url, options, callback) {
     res.on('aborted', function () { done(new Error('Request aborted.')); });
   });
   req.on('error', function (err) { done(err); });
-  req.setTimeout(45000, function () { req.destroy(new Error('Upstream request timed out.')); });
+  req.setTimeout(45000, function () { req.destroy(); });
   if (options.body) req.write(options.body);
   req.end();
 }
