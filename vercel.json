@@ -22,5 +22,10 @@
         { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 60
+    }
+  }
 }
