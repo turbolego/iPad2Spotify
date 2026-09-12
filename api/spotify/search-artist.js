@@ -17,7 +17,7 @@ module.exports = function (req, res) {
         var cfg = lib.config(req);
         lib.spotifyToken(cfg, 'grant_type=client_credentials', function (tokenErr, tokenStatus, token) {
           if (tokenErr || tokenStatus !== 200 || !token.access_token) return lib.json(res, 502, { error: 'Spotify search unavailable.' });
-          var url = 'https://api.spotify.com/v1/search?q=' + encodeURIComponent(q) + '&type=artist&limit=3&offset=0';
+          var url = 'https://api.spotify.com/v1/search?q=' + encodeURIComponent(q) + '&type=artist&market=NO&limit=10&offset=0';
           console.log('Starting artist search request: ' + url);
           lib.request(url, { headers: { Authorization: 'Bearer ' + token.access_token } }, function (apiErr, status, data) {
             console.log('Artist search request completed with status: ' + status);
