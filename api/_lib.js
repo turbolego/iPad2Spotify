@@ -55,7 +55,7 @@ function request(url, options, callback) {
     res.on('aborted', function () { done(new Error('Request aborted.')); });
   });
   req.on('error', function (err) { done(err); });
-  req.setTimeout(90000, function () { done(new Error('Upstream request timed out.')); });
+  req.setTimeout(120000, function () { done(new Error('Upstream request timed out.')); });
   if (options.body) req.write(options.body);
   req.end();
 }
@@ -71,7 +71,7 @@ function requestBuffer(url, options, callback) {
   }
   var https = require('https'), parsed = require('url').parse(url), req = https.request({ hostname: parsed.hostname, path: parsed.path, method: options.method || 'GET', headers: options.headers || {} }, function (res) { var chunks = []; res.on('data', function (chunk) { chunks.push(chunk); }); res.on('end', function () { done(null, res.statusCode, Buffer.concat(chunks), res.headers); }); res.on('error', function (err) { done(err); }); res.on('aborted', function () { done(new Error('Request aborted.')); }); });
   req.on('error', function (err) { done(err); });
-  req.setTimeout(90000, function () { req.destroy(new Error('Upstream request timed out.')); });
+  req.setTimeout(120000, function () { req.destroy(new Error('Upstream request timed out.')); });
   req.end();
 }
 module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, pairingCode: pairingCode, redirect: redirect, config: config, origin: origin, request: request, requestBuffer: requestBuffer, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
