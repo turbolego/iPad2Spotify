@@ -1,19 +1,20 @@
 var lib = require('../_lib');
 module.exports = function (req, res) {
   if ((req.method || '').toUpperCase() !== 'GET') return lib.json(res, 405, { error: 'Expected GET but received ' + req.method + '.' });
-  lib.rateLimit(req, 'search-playlist', 30, 60, function (limitErr, limited) {
-    if (limitErr) return lib.json(res, 503, { error: 'Rate-limit storage is unavailable.' });
-    if (limited) return lib.json(res, 429, { error: 'Too many searches. Try again shortly.' });
-    var sid = lib.cookie(req, 'spotify_session');
-    if (!sid) return lib.json(res, 401, { error: 'Pair this fullscreen app first.' });
-    var query = require('url').parse(req.url, true).query, q = (query.q || '').trim().slice(0, 100);
-    if (!q) return lib.json(res, 400, { error: 'Enter a playlist to search.' });
-    lib.kvGet('session:' + sid, function (err, session) {
-      if (err || !session) return lib.json(res, 401, { error: 'Session expired. Pair again.' });
-      // Check cache first
-      var cacheKey = 'search:playlist:' + encodeURIComponent(q);
-      lib.kvGet(cacheKey, function (cacheErr, cached) {
-        if (!cacheErr && cached) return lib.json(res, 200, cached);
+  var query = require('url').parse(req.url, true).query, q = (query.q || '').trim().slice(0, 100);
+  if (!q) return lib.json(res, 400, { error: 'Enter a playlist to search.' });
+  // Check cache first (before session validation to save time)
+  var cacheKey = 'search:playlist:' + encodeURIComponent(q);
+  lib.kvGet(cacheKey, function (cacheErr, cached) {
+    if (!cacheErr && cached) return lib.json(res, 200, cached);
+    // Only validate session if cache miss
+    lib.rateLimit(req, 'search-playlist', 30, 60, function (limitErr, limited) {
+      if (limitErr) return lib.json(res, 503, { error: 'Rate-limit storage is unavailable.' });
+      if (limited) return lib.json(res, 429, { error: 'Too many searches. Try again shortly.' });
+      var sid = lib.cookie(req, 'spotify_session');
+      if (!sid) return lib.json(res, 401, { error: 'Pair this fullscreen app first.' });
+      lib.kvGet('session:' + sid, function (err, session) {
+        if (err || !session) return lib.json(res, 401, { error: 'Session expired. Pair again.' });
         var cfg = lib.config(req);
         lib.spotifyToken(cfg, 'grant_type=client_credentials', function (tokenErr, tokenStatus, token) {
           if (tokenErr || tokenStatus !== 200 || !token.access_token) return lib.json(res, 502, { error: 'Spotify search unavailable.' });
