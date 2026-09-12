@@ -10,24 +10,30 @@ module.exports = function (req, res) {
     if (!q) return lib.json(res, 400, { error: 'Enter a playlist to search.' });
     lib.kvGet('session:' + sid, function (err, session) {
       if (err || !session) return lib.json(res, 401, { error: 'Session expired. Pair again.' });
-      var cfg = lib.config(req);
-      // Use client credentials for faster search (matches debug workflow)
-      lib.spotifyToken(cfg, 'grant_type=client_credentials', function (tokenErr, tokenStatus, token) {
-        if (tokenErr || tokenStatus !== 200 || !token.access_token) return lib.json(res, 502, { error: 'Spotify search unavailable.' });
-        var url = 'https://api.spotify.com/v1/search?q=' + encodeURIComponent(q) + '&type=playlist&limit=3&offset=0';
-        console.log('Starting playlist search request: ' + url);
-        lib.request(url, { headers: { Authorization: 'Bearer ' + token.access_token } }, function (apiErr, status, data) {
-          console.log('Playlist search request completed with status: ' + status);
-          if (apiErr) return lib.json(res, 502, { error: 'Spotify request failed.' });
-          if (status !== 200) return lib.json(res, status, data || { error: 'Spotify request failed.' });
-          var items = (data.playlists && data.playlists.items) || [];
-          var playlists = items.map(function (playlist) {
-            return { id: playlist.id, name: playlist.name, image: playlist.images && playlist.images.length ? playlist.images[playlist.images.length - 1].url : '' };
+      // Check cache first
+      var cacheKey = 'search:playlist:' + encodeURIComponent(q);
+      lib.kvGet(cacheKey, function (cacheErr, cached) {
+        if (!cacheErr && cached) return lib.json(res, 200, cached);
+        var cfg = lib.config(req);
+        lib.spotifyToken(cfg, 'grant_type=client_credentials', function (tokenErr, tokenStatus, token) {
+          if (tokenErr || tokenStatus !== 200 || !token.access_token) return lib.json(res, 502, { error: 'Spotify search unavailable.' });
+          var url = 'https://api.spotify.com/v1/search?q=' + encodeURIComponent(q) + '&type=playlist&limit=3&offset=0';
+          console.log('Starting playlist search request: ' + url);
+          lib.request(url, { headers: { Authorization: 'Bearer ' + token.access_token } }, function (apiErr, status, data) {
+            console.log('Playlist search request completed with status: ' + status);
+            if (apiErr) return lib.json(res, 502, { error: 'Spotify request failed.' });
+            if (status !== 200) return lib.json(res, status, data || { error: 'Spotify request failed.' });
+            var items = (data.playlists && data.playlists.items) || [];
+            var playlists = items.map(function (playlist) {
+              return { id: playlist.id, name: playlist.name, image: playlist.images && playlist.images.length ? playlist.images[playlist.images.length - 1].url : '' };
+            });
+            var result = { playlists: playlists };
+            // Cache result for 5 minutes
+            lib.kvSet(cacheKey, result, 300, function () {});
+            lib.json(res, 200, result);
           });
-          lib.json(res, 200, { playlists: playlists });
         });
       });
     });
   });
 };
-// Updated: 2026-09-12 17:13:11 UTC

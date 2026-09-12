@@ -10,21 +10,28 @@ module.exports = function (req, res) {
     if (!q) return lib.json(res, 400, { error: 'Enter an artist name to search.' });
     lib.kvGet('session:' + sid, function (err, session) {
       if (err || !session) return lib.json(res, 401, { error: 'Session expired. Pair again.' });
-      var cfg = lib.config(req);
-      // Use client credentials for faster search (matches debug workflow)
-      lib.spotifyToken(cfg, 'grant_type=client_credentials', function (tokenErr, tokenStatus, token) {
-        if (tokenErr || tokenStatus !== 200 || !token.access_token) return lib.json(res, 502, { error: 'Spotify search unavailable.' });
-        var url = 'https://api.spotify.com/v1/search?q=' + encodeURIComponent(q) + '&type=artist&limit=3&offset=0';
-        console.log('Starting artist search request: ' + url);
-        lib.request(url, { headers: { Authorization: 'Bearer ' + token.access_token } }, function (apiErr, status, data) {
-          console.log('Artist search request completed with status: ' + status);
-          if (apiErr) return lib.json(res, 502, { error: 'Spotify request failed.' });
-          if (status !== 200) return lib.json(res, status, data || { error: 'Spotify request failed.' });
-          var items = (data.artists && data.artists.items) || [];
-          var artists = items.map(function (artist) {
-            return { id: artist.id, name: artist.name, image: artist.images && artist.images.length ? artist.images[artist.images.length - 1].url : '' };
+      // Check cache first
+      var cacheKey = 'search:artist:' + encodeURIComponent(q);
+      lib.kvGet(cacheKey, function (cacheErr, cached) {
+        if (!cacheErr && cached) return lib.json(res, 200, cached);
+        var cfg = lib.config(req);
+        lib.spotifyToken(cfg, 'grant_type=client_credentials', function (tokenErr, tokenStatus, token) {
+          if (tokenErr || tokenStatus !== 200 || !token.access_token) return lib.json(res, 502, { error: 'Spotify search unavailable.' });
+          var url = 'https://api.spotify.com/v1/search?q=' + encodeURIComponent(q) + '&type=artist&limit=3&offset=0';
+          console.log('Starting artist search request: ' + url);
+          lib.request(url, { headers: { Authorization: 'Bearer ' + token.access_token } }, function (apiErr, status, data) {
+            console.log('Artist search request completed with status: ' + status);
+            if (apiErr) return lib.json(res, 502, { error: 'Spotify request failed.' });
+            if (status !== 200) return lib.json(res, status, data || { error: 'Spotify request failed.' });
+            var items = (data.artists && data.artists.items) || [];
+            var artists = items.map(function (artist) {
+              return { id: artist.id, name: artist.name, image: artist.images && artist.images.length ? artist.images[artist.images.length - 1].url : '' };
+            });
+            var result = { artists: artists };
+            // Cache result for 5 minutes
+            lib.kvSet(cacheKey, result, 300, function () {});
+            lib.json(res, 200, result);
           });
-          lib.json(res, 200, { artists: artists });
         });
       });
     });
