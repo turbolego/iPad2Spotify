@@ -144,31 +144,21 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   }
   id('eq-on').addEventListener('click', function () { eqOn = !eqOn; if (!eqOn) eqAuto = false; refreshEqToggles(); });
   id('eq-auto').addEventListener('click', function () { eqAuto = !eqAuto; if (eqAuto) eqOn = true; refreshEqToggles(); });
-  // Milkdrop CSS visualizer (no WebGL on iPad 2)
-  var milkCtx = null, milkAnim = null, milkPhase = 0;
+  // OldMilk package visualizer (WebGL 1 with ES5-safe fallback).
+  var milkViz = null, milkAnim = null;
   function initMilkdrop() {
     var c = id('milkdrop-canvas');
-    if (!c || !c.getContext) return;
-    try { milkCtx = c.getContext('2d'); } catch (e) { milkCtx = null; }
+    if (!c || !window.OldMilk) return;
+    if (!milkViz) {
+      milkViz = window.OldMilk.createVisualizer(c, { width: 275, height: 116 });
+      milkViz.setAudioSource(null);
+      id('milkdrop-message').innerHTML = milkViz.isWebGL() ? 'OldMilk · WebGL 1' : 'OldMilk · Canvas 2D';
+    }
   }
   function milkdropFrame() {
-    milkPhase += 0.06;
-    if (milkCtx && milkCtx.canvas) {
-      var W = milkCtx.canvas.width, H = milkCtx.canvas.height;
-      var g = milkCtx;
-      if (isPlayingState) {
-        for (var i = 0; i < 40; i++) {
-          var y = H/2 + Math.sin(milkPhase + i * 0.35) * (H/3) + Math.sin(milkPhase*1.7 + i*0.12) * (H/5);
-          var h = Math.max(4, (H - y) * 0.8);
-          g.fillStyle = 'rgb(' + Math.floor(120 + 120*Math.sin(milkPhase+i)) + ',' + Math.floor(80+120*Math.sin(milkPhase*1.3+i*2)) + ',40)';
-          g.fillRect((i/40)*W, y, W/40, h);
-        }
-      } else {
-        g.fillStyle = '#000';
-        g.fillRect(0, 0, W, H);
-      }
-    }
-    if (isPlayingState) setTimeout(milkdropFrame, 50);
+    initMilkdrop();
+    if (milkViz) milkViz.render();
+    if (isPlayingState) milkAnim = setTimeout(milkdropFrame, 33);
     else milkAnim = null;
   }
   function startMilkdrop() {
