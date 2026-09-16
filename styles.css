@@ -2,6 +2,10 @@
 
 .site-title{display:inline;margin:0;color:#f5f1e8;font-size:13px;font-weight:bold;letter-spacing:.08em}
 button:focus,input:focus,a:focus{outline:2px solid #f5f1e8;outline-offset:2px}
+.details p.empty-state{white-space:normal;line-height:1.45;color:#aab3aa}
+.loading-indicator{display:inline-block;width:11px;height:11px;margin-right:7px;border:2px solid #566355;border-top-color:#b6d64b;border-radius:50%;vertical-align:-1px;-webkit-animation:spin .8s linear infinite;animation:spin .8s linear infinite}
+@-webkit-keyframes spin{from{-webkit-transform:rotate(0deg)}to{-webkit-transform:rotate(360deg)}}@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.small-button[disabled]{opacity:.65;cursor:default}
 
 /* Narrow phones: keep the setup card in two readable rows. This uses only
    media queries, block layout, and 2000s-era flex fallbacks for iOS 9 Safari. */
