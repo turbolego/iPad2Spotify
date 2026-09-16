@@ -150,7 +150,7 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
     var c = id('milkdrop-canvas');
     if (!c || !window.OldMilk) return;
     if (!milkViz) {
-      milkViz = window.OldMilk.createVisualizer(c, { width: 275, height: 116 });
+      milkViz = window.oldmilkViz || window.OldMilk.createVisualizer(c, { width: 275, height: 116 });
       milkViz.setAudioSource(null);
       id('milkdrop-message').innerHTML = milkViz.isWebGL() ? 'OldMilk · WebGL 1' : 'OldMilk · Canvas 2D';
     }
