@@ -198,9 +198,9 @@ After pairing the app and observing at least one playing track, select **Create 
 
 Copy that Markdown into a GitHub profile `README.md`. The SVG displays the last track observed by the paired app, including album artwork, song title, and artist. For each badge request, the server uses the stored track ID with Spotify’s `GET /v1/tracks/{id}` endpoint and selects `album.images[0].url`, the highest-resolution artwork returned by Spotify. It then downloads and embeds the artwork inside the SVG so GitHub does not need to load a remote image nested inside the badge. The badge is a public image URL: anyone who can see the README source can request it.
 
-The badge lifecycle is: the paired app polls `/api/spotify/currently-playing`; the server refreshes the Spotify access token from the server-side session; the latest track ID and basic metadata are saved in Redis; **Create GitHub README Badge** creates a random badge key mapped to that session; and GitHub requests `/api/badge/<key>.svg` when rendering the profile README. The badge endpoint looks up the stored track ID, asks Spotify for the current track object and album image, embeds the image, and returns an SVG. The badge is cached for a short period, so GitHub may show an older song for several minutes.
+The badge lifecycle is: the paired app checks `/api/spotify/currently-playing` on an adaptive schedule; the server refreshes the Spotify access token from the server-side session; the latest track ID and basic metadata are saved in Redis; **Create GitHub README Badge** creates a random badge key mapped to that session; and GitHub requests `/api/badge/<key>.svg` when rendering the profile README. The badge endpoint looks up the stored track ID, asks Spotify for the current track object and album image, embeds the image, and returns an SVG. The badge is cached for a short period, so GitHub may show an older song for several minutes.
 
-The badge is updated when the app successfully polls Spotify, normally about every five seconds while the iPad app is open. It does not independently monitor Spotify while the iPad app is closed. GitHub and image proxies may cache the image, so changes can appear with a delay of up to several minutes.
+The badge is updated when the app successfully checks Spotify. While playing, checks normally occur about every 15 seconds, with a shorter check near the end of a track; when idle or paused, checks occur about every 30 seconds. It does not independently monitor Spotify while the iPad app is closed. GitHub and image proxies may cache the image, so changes can appear with a delay of up to several minutes.
 
 The badge key is a viewing key, not a playback-control credential. It does not expose Spotify access tokens, refresh tokens, Redis credentials, or the private session cookie. The badge record expires after one year; create a new badge from the app if it expires.
 
@@ -216,10 +216,11 @@ The dashboard provides:
 - previous track,
 - next track,
 - a playback timeline showing elapsed and total track time,
-- automatic polling approximately every five seconds,
+- adaptive currently-playing checks, normally every 15–30 seconds,
 - a custom SVG last-played card for GitHub profile READMEs,
 - Minimalist View with centered album artwork and track text,
 - Search Artist to start artist radio playback for any artist,
+- Search Playlist to find Spotify playlists and start a selected playlist,
 - Winamp Mode, a retro Winamp-style interface for the same dashboard.
 
 The regular player also has a **Minimalist View** button. Minimalist View centers the album cover on the screen and places the artist and song name directly below it, hiding the other controls and interface elements. Tap the album cover to open the **Exit minimalist view?** confirmation. Select **yes** to return to the regular player or **no** to continue viewing the minimalist display.
@@ -231,11 +232,11 @@ The **Winamp Mode** button swaps the dashboard for a retro Winamp-style skin tha
 The mode is made of four free-floating **modules** whose layout and look mirror Webamp's windows:
 
 - **Main window** — the player: current track in a scrolling marquee, album art, a bouncing-bar "oscilloscope" that animates while playing, elapsed/total time, a seekbar, and previous/play/stop/pause/next controls plus a volume bar. All playback buttons drive Spotify through the same allowlisted command API as the regular player.
-- **Playlist Editor** — Spotify queue/track list rendered as green-on-black rows (Webamp's playlist palette); the currently playing row is highlighted.
+- **Playlist Editor** — a local observed-track list rendered as green-on-black rows (Webamp's playlist palette); it is not Spotify's queue, and the currently playing row is highlighted.
 - **Equalizer** — the 10 Winamp EQ bands (60Hz–16kHz) plus preamp as draggable vertical sliders with live dB readout, and **ON/AUTO** toggles. Equalizer bands are a visual control (a canvas fade), not actual audio DSP, since the iPad 2 exposes no Web Audio EQ.
 - **Milkdrop** — a canvas visualizer that draws reactive waveform bars while music plays. It is a CSS/canvas stand-in (a 2D oscilloscope gradient), because Milkdrop's real renderer needs WebGL/Butterchurn, which the iPad 2 GPU does not provide.
 
-Every module has a title bar with a **shade** (▬) and **close** (×) control, and every module can be **dragged** around the screen, with snap-to-grid so windows align against each other and the screen edges. Choose **Exit Winamp** to return to the regular dashboard.
+Every module has a title bar with a **shade** (▬) and **close** (×) control, and every module can be **dragged** around the screen, with proximity-based edge alignment: when a dragged window is within 15px of a neighboring module edge, the edges align. Windows are otherwise only constrained from being fully dragged off-screen. Choose **Exit Winamp** to return to the regular dashboard.
 
 Playback controls generally require a Spotify Premium account and an active controllable Spotify device. The dashboard does not play audio itself.
 
