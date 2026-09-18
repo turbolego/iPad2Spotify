@@ -18,6 +18,7 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   }
   function setWinamp(on) {
     winampOn = on;
+    if (on) { for (var ri = 0; ri < moduleKeys.length; ri++) { var rel = moduleEls[moduleKeys[ri]]; if (rel) rel.className = rel.className.replace(' hidden',''); } } else { stopMilkdrop(); }
     id('winamp-player').className = 'winamp' + (on ? '' : ' hidden');
     id('player').className = 'player' + (on ? ' hidden' : '');
     id('winamp-toggle').innerHTML = on ? 'Exit Winamp' : 'Winamp Mode';
@@ -37,12 +38,14 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   var SNAP = 15;
   var WIN = { main: 275, playlist: 275, eq: 275, milkdrop: 275 };
   var moduleEls = {};
-  ['main','playlist','eq','milkdrop'].forEach(function (k) { moduleEls[k] = id('winamp-' + k); });
+  var moduleKeys = ['main','playlist','eq','milkdrop'];
+  for (var mk = 0; mk < moduleKeys.length; mk++) moduleEls[moduleKeys[mk]] = id('winamp-' + moduleKeys[mk]);
   var windowBounds = {};
   function mwh() { try { return window.innerHeight || document.documentElement.clientHeight || 768; } catch (e) { return 768; } }
   function mww() { try { return window.innerWidth || document.documentElement.clientWidth || 1024; } catch (e) { return 1024; } }
   function clampWin(k, x, y) {
     var w = WIN[k], h = mwh();
+    if (moduleEls[k] && moduleEls[k].offsetWidth) w = moduleEls[k].offsetWidth;
     if (x < -w + 40) x = -w + 40;
     if (x > mww() - 40) x = mww() - 40;
     if (y < 0) y = 0;
@@ -53,7 +56,7 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
     var el = moduleEls[k]; if (!el) return;
     var c = clampWin(k, x, y);
     el.style.left = c.x + 'px'; el.style.top = c.y + 'px';
-    windowBounds[k] = { x: c.x, y: c.y, w: WIN[k] };
+    windowBounds[k] = { x: c.x, y: c.y, w: el.offsetWidth || WIN[k], h: el.offsetHeight || 116 };
   }
   function initWinLayout() {
     placeWin('main', 20, 40);
@@ -64,14 +67,14 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   function snapWin(k) {
     // Snap each other module to this one if within SNAP distance on an edge
     var b = windowBounds[k]; if (!b) return;
-    ['main','playlist','eq','milkdrop'].forEach(function (o) {
+    moduleKeys.forEach(function (o) {
       if (o === k || !windowBounds[o]) return;
       var ob = windowBounds[o];
       var nx, ny;
-      if (Math.abs(ob.y - (b.y + 116)) < SNAP && Math.abs(ob.x - b.x) < SNAP) ny = b.y + 116;
-      if (Math.abs((ob.y + 116) - b.y) < SNAP && Math.abs(ob.x - b.x) < SNAP) ny = b.y - 116;
-      if (Math.abs(ob.x - (b.x + WIN.main)) < SNAP && Math.abs(ob.y - b.y) < SNAP) nx = b.x + WIN.main;
-      if (Math.abs((ob.x + WIN.main) - b.x) < SNAP && Math.abs(ob.y - b.y) < SNAP) nx = b.x - WIN.main;
+      if (Math.abs(ob.y - (b.y + b.h)) < SNAP && Math.abs(ob.x - b.x) < SNAP) ny = b.y + b.h;
+      if (Math.abs((ob.y + ob.h) - b.y) < SNAP && Math.abs(ob.x - b.x) < SNAP) ny = b.y - ob.h;
+      if (Math.abs(ob.x - (b.x + b.w)) < SNAP && Math.abs(ob.y - b.y) < SNAP) nx = b.x + b.w;
+      if (Math.abs((ob.x + ob.w) - b.x) < SNAP && Math.abs(ob.y - b.y) < SNAP) nx = b.x - ob.w;
       if (nx !== undefined || ny !== undefined) {
         placeWin(o, nx !== undefined ? nx : ob.x, ny !== undefined ? ny : ob.y);
       }
@@ -102,7 +105,7 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   document.addEventListener('mouseup', onDragEnd);
   document.addEventListener('touchmove', onDragMove);
   document.addEventListener('touchend', onDragEnd);
-  ['main','playlist','eq','milkdrop'].forEach(function (k) {
+  moduleKeys.forEach(function (k) {
     var title = moduleEls[k].querySelector('.wtitle');
     if (title) {
       title.addEventListener('mousedown', function (e) { if (e.target.className.indexOf && String(e.target.className).indexOf('wbtn') === -1) onDragStart(k, e); });
@@ -122,10 +125,11 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
     else el.className += ' shaded';
   }
   // wire close/min buttons on each title bar
-  document.querySelectorAll('.wbtn-close').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); toggleModule(b.getAttribute('data-mod')); }); });
-  document.querySelectorAll('.wbtn-min').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); shadeModule(b.getAttribute('data-mod')); }); });
+  function eachNode(selector, fn) { var nodes = document.querySelectorAll(selector); for (var ni = 0; ni < nodes.length; ni++) fn(nodes[ni]); }
+  eachNode('.wbtn-close', function (b) { b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); toggleModule(b.getAttribute('data-mod')); }); });
+  eachNode('.wbtn-min', function (b) { b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); shadeModule(b.getAttribute('data-mod')); }); });
   // Equalizer sliders: live feedback
-  document.querySelectorAll('.eq-slider-v').forEach(function (s) {
+  eachNode('.eq-slider-v', function (s) {
     function updateVal() {
       var v = parseInt(s.value, 10);
       var band = s.getAttribute('data-band');
@@ -177,9 +181,9 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   function updateTimeline(){if(!current||!current.item){id('timeline-fill').style.width='0%';id('time-elapsed').innerHTML='0:00';id('time-duration').innerHTML='0:00';id('winamp-fill').style.width='0%';id('winamp-elapsed').innerHTML='0:00';id('winamp-duration').innerHTML='0:00';return}var duration=current.item.duration_ms||0,elapsed=current.progress_ms||0;if(current.is_playing)elapsed+=Date.now()-current.fetched_at;if(elapsed>duration)elapsed=duration;var pct=duration?Math.min(100,elapsed/duration*100):0;id('timeline-fill').style.width=pct+'%';id('time-elapsed').innerHTML=formatTime(elapsed);id('time-duration').innerHTML=formatTime(duration);id('winamp-fill').style.width=pct+'%';id('winamp-elapsed').innerHTML=formatTime(elapsed);id('winamp-duration').innerHTML=formatTime(duration)}
   function setPlaying(isPlaying){isPlayingState=!!isPlaying;id('play').className=isPlaying?'play icon-play is-playing':'play icon-play';refreshBodyClass();if(isPlaying)startMilkdrop();else stopMilkdrop()}
   function setWinampTrack(text,artUrl){var el=id('winamp-track');if(el)el.innerHTML=text||'Nothing playing';var art=id('winamp-art');var ph=id('winamp-placeholder');if(art&&ph){var shown=artUrl&&artUrl.charAt?artUrl:'';if(shown){art.src=shown;art.style.display='block';ph.style.display='none'}else{art.style.display='none';ph.style.display='block'}}}
-  function updateWinampPlaylist(name,artist,isPlaying){var list=id('winamp-playlist-list');if(!list)return;var rows=list.getElementsByClassName('playlist-row');for(var i=0;i<rows.length;i++){rows[i].className='playlist-row';}var row=document.createElement('div');row.className='playlist-row'+(isPlaying?' current-row':'');var ex=document.createElement('span');ex.className='pl-exit';ex.innerHTML='×';var num=document.createElement('span');num.className='pl-num';num.innerHTML=name||'Nothing playing';row.appendChild(ex);row.appendChild(num);var first=list.firstChild;if(first)list.insertBefore(row,first);else list.appendChild(row)}
+  function updateWinampPlaylist(name,artist,isPlaying){var list=id('winamp-playlist-list');if(!list)return;var rows=list.getElementsByClassName('playlist-row');for(var i=0;i<rows.length;i++){rows[i].className='playlist-row';}var key=(name||'Nothing playing')+'|'+(artist||''); for(var ci=0;ci<rows.length;ci++){if((rows[ci].getAttribute ? rows[ci].getAttribute('data-track') : rows[ci]._trackKey)===key){rows[ci].className='playlist-row'+(isPlaying?' current-row':'');return;}} var row=document.createElement('div');if(row.setAttribute)row.setAttribute('data-track',key);row._trackKey=key;row.className='playlist-row'+(isPlaying?' current-row':'');var ex=document.createElement('span');ex.className='pl-exit';ex.innerHTML='×';var num=document.createElement('span');num.className='pl-num';num.innerHTML=name||'Nothing playing';row.appendChild(ex);row.appendChild(num);var first=list.firstChild;if(first)list.insertBefore(row,first);else list.appendChild(row); while(list.getElementsByClassName('playlist-row').length>12)list.removeChild(list.lastChild)}
   function render(data){var item=data&&data.item;if(!item){id('title').innerHTML='Nothing playing';id('artist').innerHTML='Start Spotify on another device';id('album').innerHTML='';id('minimalist-artist').innerHTML='';id('minimalist-title').innerHTML='Nothing playing';id('art').style.display='none';id('placeholder').className='';setPlaying(false);setWinampTrack('');current=null;updateTimeline();return}current=data;current.fetched_at=Date.now();var artist=item.artists.map(function(a){return a.name}).join(', ');var artUrl=(item.album&&item.album.images&&item.album.images.length)?item.album.images[0].url:'';id('title').innerHTML=item.name;id('artist').innerHTML=artist;id('album').innerHTML=item.album.name;id('minimalist-artist').innerHTML=artist;id('minimalist-title').innerHTML=item.name;setPlaying(!!data.is_playing);setWinampTrack(escapeHtml(artist)+' — '+escapeHtml(item.name),artUrl);updateWinampPlaylist(escapeHtml(item.name),escapeHtml(artist),data.is_playing);if(artUrl){id('art').src=artUrl;id('art').style.display='block';id('placeholder').className='hidden'}updateTimeline()}
-  function poll(){request('GET','/api/spotify/currently-playing',null,function(status,data){if(status===200){render(data);id('winamp-message').innerHTML='Playing';schedulePoll(pollDelay(data))}else if(status===401){id('status').innerHTML='Not connected';id('player-message').innerHTML=data.error||'Pair again.';id('winamp-message').innerHTML=data.error||'Pair again.';schedulePoll(30000)}else{id('player-message').innerHTML='Waiting for Spotify…';id('winamp-message').innerHTML='Waiting for Spotify…';schedulePoll(30000)}})}
+  function poll(){if(document.hidden)return;var load=id('loading-indicator');if(load)load.className='loading-indicator';request('GET','/api/spotify/currently-playing',null,function(status,data){if(load)load.className='loading-indicator hidden';if(status===200){render(data);id('winamp-message').innerHTML='Playing';schedulePoll(pollDelay(data))}else if(status===401){id('status').innerHTML='Not connected';id('player-message').innerHTML=data.error||'Pair again.';id('winamp-message').innerHTML=data.error||'Pair again.';schedulePoll(30000)}else{id('player-message').innerHTML='Waiting for Spotify…';id('winamp-message').innerHTML='Waiting for Spotify…';schedulePoll(30000)}})}
   function command(action){request('POST','/api/spotify/command',{action:action},function(status,data){if(status!==200){var m=data.error||'Command failed';id('player-message').innerHTML=m;id('winamp-message').innerHTML=m}else{id('winamp-message').innerHTML='Command sent'}schedulePoll(750)})}
   setInterval(updateTimeline,1000);
   function createBadge(){var url = '/api/badge/'+Date.now(); request('POST', url, {}, function(status,data){if(status===200){window.prompt('Copy this Markdown into your GitHub profile README:', '[![Last played on Spotify]('+data.url+')](https://'+window.location.host+'/)')}else id('player-message').innerHTML=data.error||'Could not create badge.'})}
@@ -191,6 +195,7 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   function playTarget(mode,itemId,name){var noun=mode==='playlist'?'playlist':'artist radio';id('artist-message').innerHTML='Starting '+name+' ('+noun+')…';var body={action:mode==='playlist'?'play_playlist':'play_artist'};body[mode==='playlist'?'playlist_id':'artist_id']=itemId;request('POST','/api/spotify/command',body,function(status,data){if(status!==200){id('artist-message').innerHTML=data.error||'Could not start '+noun+'.';schedulePoll(750);return}closeArtistModal();schedulePoll(750)})}
   function enterMinimalist(){minimalist=true;id('minimalist').innerHTML='Regular View';refreshBodyClass()}
   function exitMinimalist(){minimalist=false;id('exit-modal').className='modal hidden';id('minimalist').innerHTML='Minimalist View';refreshBodyClass()}
+  id('winamp-pl-clear').onclick=function(){id('winamp-playlist-list').innerHTML='';};id('winamp-pl-add').onclick=function(){if(current)updateWinampPlaylist(escapeHtml(current.item.name),escapeHtml(current.item.artists[0].name),false);};id('winamp-pl-selall').onclick=function(){var rs=id('winamp-playlist-list').getElementsByClassName('playlist-row');for(var si=0;si<rs.length;si++)rs[si].className='playlist-row current-row';};id('winamp-pl-back').onclick=function(){winampCommand('previous');};id('winamp-pl-play').onclick=function(){winampCommand('play');};id('winamp-pl-fwd').onclick=function(){winampCommand('next');};id('winamp-pl-stop').onclick=function(){winampCommand('pause');};id('eq-preset').onclick=function(){var vals=[35,42,50,58,65,58,50,42,35,30,25];var ss=document.querySelectorAll('.eq-slider-v');for(var pi=0;pi<ss.length;pi++){ss[pi].value=vals[pi]||50;var ev=document.createEvent('Event');ev.initEvent('change',true,true);ss[pi].dispatchEvent(ev);}};document.addEventListener('visibilitychange',function(){if(document.hidden){if(timer)clearTimeout(timer);timer=null;}else if(winampOn) schedulePoll(0);},false);
   id('login').onclick=login;id('pair').onclick=pair;id('pairing-code').onkeyup=function(e){if(e&&e.keyCode===13)pair()};id('previous').onclick=function(){command('previous')};id('next').onclick=function(){command('next')};id('play').onclick=function(){command(current&&current.is_playing?'pause':'play')};id('minimalist').onclick=function(){if(minimalist)exitMinimalist();else enterMinimalist()};id('badge').onclick=createBadge;id('art-tap').onclick=function(){if(minimalist)id('exit-modal').className='modal';};id('exit-yes').onclick=exitMinimalist;id('exit-no').onclick=function(){id('exit-modal').className='modal hidden'};id('disconnect').onclick=function(){request('POST','/api/auth/logout',null,function(){location.reload()})};id('search-artist').onclick=openArtistModal;id('search-tab-artist').onclick=function(){switchSearchMode('artist')};id('search-tab-playlist').onclick=function(){switchSearchMode('playlist')};id('artist-search-go').onclick=searchArtist;id('artist-cancel').onclick=closeArtistModal;id('artist-query').onkeyup=function(e){if(e&&e.keyCode===13)searchArtist()};id('playlist-query').onkeyup=function(e){if(e&&e.keyCode===13)searchArtist()};
   request('GET','/api/spotify/currently-playing',null,function(status){if(status===200)showPlayer()});
 }());
