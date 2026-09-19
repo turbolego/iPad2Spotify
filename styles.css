@@ -101,47 +101,53 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 }
 .winamp-mover{position:absolute;top:0;left:0;width:100%;height:100%}
 
-/* Module window — use Webamp bitmap asset for pixel-perfect chrome */
+/* Module window — subtle border matching Webamp skin */
 .wmodule{
-  position:absolute;width:275px;height:116px;
-  background:#0e0e16;
-  background-image: url('vendor/webamp_asset_000.png');
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
+  position:absolute;width:280px;
+  background:#5a5a6e;
+  background: linear-gradient(to right, #5a5a6e, #7a7a8e);
   font-family:Arial,"Helvetica Neue",sans-serif;
   -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
 }
 
-/* Hide CSS title bar — bitmap asset has it rendered */
-.wtitle{
-  position:absolute;top:0;left:0;right:0;
-  height:14px;
-  background:transparent;
-  background-image: url('vendor/webamp_asset_001.png');
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  color:transparent;
-  font-size:11px;font-weight:bold;letter-spacing:.04em;
-  padding:0;
-  display:block;
-  cursor:pointer;-webkit-user-select:none;user-select:none;
+/* Window buttons — Windows 95/98 style (empty grey boxes) */
+.wtitle-btns{display:-webkit-flex;display:flex}
+.wtitle-btns button{
+  width:11px;height:11px;
+  background:#909090;
+  background:-webkit-gradient(linear,left top,left bottom,from(#b0b0b0),to(#707070));
+  background:linear-gradient(to bottom,#b0b0b0,#707070);
+  border:1px outset #606060;
+  padding:0;cursor:pointer;
+}
+.wtitle-btns button:active,.wtitle-btns button:hover{
+  background:#b6d64b;
+  background:-webkit-gradient(linear,left top,left bottom,from(#d4e6a0),to(#7a9a3b));
+  background:linear-gradient(to bottom,#d4e6a0,#7a9a3b);
+  border-style:inset;
 }
 
-.wtitle span{font-family:"Courier New",monospace;color:transparent}
-.wtitle-text{margin-right:4px;visibility:hidden}
+/* Title bar — dark metallic gradient */
+.wtitle{
+  height:18px;
+  background:#06060b;
+  background:-webkit-gradient(linear,left top,left bottom,from(#0a0a12),color-stop(.5,#06060b),to(#020205));
+  background:linear-gradient(to bottom,#0a0a12,#06060b 50%,#020205);
+  color:#8be08b;
+  font-size:11px;font-weight:bold;letter-spacing:.04em;
+  padding:0 4px;
+  display:-webkit-flex;display:flex;
+  -webkit-align-items:center;align-items:center;
+  -webkit-justify-content:space-between;justify-content:space-between;
+}
 
-/* Hide CSS window buttons — bitmap has them */
-.wtitle-btns{display:none}
+.wtitle span{font-family:"Courier New",monospace}
+.wtitle-text{margin-right:4px}
 
-/* Window contents area */
+/* Window contents */
 .wcontents{
-  position:absolute;top:14px;left:0;right:0;bottom:0;
-  background:transparent;
-  padding:0;
-  overflow:hidden;
-  font-size:11px;
-  font-family:Arial,Helvetica,sans-serif;
-  color:#ccc;
+  background:#363658;
+  background: linear-gradient(to right, #363658, #4a4a70);
 }
 
 /* ========== MAIN WINDOW ========== */
@@ -154,6 +160,8 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
   border:1px inset #2a2d2e;
   padding:4px;
   margin-bottom:6px;
+  width:200px;
+  margin-left:8px;
 }
 .lcd-spectrum{
   display:-webkit-flex;display:flex;
