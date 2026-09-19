@@ -130,15 +130,15 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 /* Title bar — dark metallic gradient */
 .wtitle{
   height:18px;
-  background:#0a0a12;
-  background: -webkit-gradient(linear,left top,left bottom,from(#1a1a2a),color-stop(.3,#0a0a12),to(#0a0a12));
-  background: linear-gradient(to bottom,#1a1a2a,#0a0a12 30%,#0a0a12);
+  background:#1a1a2a;
+  background: -webkit-gradient(linear,left top,left bottom,from(#2a2a3c),color-stop(.35,#0e0e16),to(#06060b));
+  background: linear-gradient(to bottom,#2a2a3c 0%,#0e0e16 35%,#06060b 100%);
   color:#8be08b;
-  font-size:11px;font-weight:bold;letter-spacing:.04em;
-  padding:0 4px;
-  display:-webkit-flex;display:flex;
-  -webkit-align-items:center;align-items:center;
-  -webkit-justify-content:space-between;justify-content:space-between;
+  font-size:11px;font-weight:bold;letter-spacing:1px;
+  text-align:center;
+  line-height:18px;
+  overflow:hidden;
+  position:relative;
 }
 
 .wtitle span{font-family:"Courier New",monospace}
@@ -146,9 +146,9 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 
 /* Window contents */
 .wcontents{
-  background:#181829;
-  background: -webkit-gradient(linear,left top,left right,from(#181829),color-stop(.25,#1e1e32),color-stop(.55,#3a3a5a),color-stop(.85,#707088),to(#91919d));
-  background: linear-gradient(to right,#181829 0%,#1e1e32 25%,#3a3a5a 55%,#707088 85%,#91919d 100%);
+  background:#12121f;
+  background: -webkit-gradient(linear,left top,left right,from(#12121f),color-stop(.2,#181829),color-stop(.45,#2a2a42),color-stop(.55,#2a2a42),color-stop(.75,#404058),to(#6a6a7e));
+  background: linear-gradient(to right,#12121f 0%,#181829 20%,#2a2a42 45%,#2a2a42 55%,#404058 75%,#6a6a7e 100%);
   margin-top:0;
   padding:0;
 }
