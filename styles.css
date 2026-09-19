@@ -130,9 +130,9 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 /* Title bar — dark metallic gradient */
 .wtitle{
   height:18px;
-  background:#1a1a28;
-  background:-webkit-gradient(linear,left top,left bottom,from(#2a2a3c),color-stop(.5,#1a1a2a),to(#0a0a18));
-  background:linear-gradient(to bottom,#2a2a3c,#1a1a2a 50%,#0a0a18);
+  background:#06060b;
+  background:-webkit-gradient(linear,left top,left bottom,from(#0a0a12),color-stop(.5,#06060b),to(#020205));
+  background:linear-gradient(to bottom,#0a0a12,#06060b 50%,#020205);
   color:#8be08b;
   font-size:11px;font-weight:bold;letter-spacing:.04em;
   padding:0 4px;
@@ -146,7 +146,8 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 
 /* Window contents */
 .wcontents{
-  background:transparent;
+  background:#363658;
+  background: linear-gradient(to right, #363658, #4a4a70);
 }
 
 /* ========== MAIN WINDOW ========== */
