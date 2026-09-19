@@ -55,7 +55,7 @@ body.winamp-active .winamp-obar:nth-child(1){animation-delay:.0s}body.winamp-act
 
 /* Playlist window */
 .playlist-contents{background:#000}
-.playlist-tabs{display:-webkit-flex;display:flex;padding:3px}.ptab+.ptab{margin-left:2px}border-bottom:1px solid #222}
+.playlist-tabs{display:-webkit-flex;display:flex;padding:3px;border-bottom:1px solid #222}.ptab+.ptab{margin-left:2px}
 .ptab{background:#1a1e1a;color:#9f9;font-size:9px;padding:2px 8px;cursor:pointer}
 .ptab-active{color:#000;background:#b6d64b;font-weight:bold}
 .playlist-list{height:78px;overflow-y:auto;padding:2px;font-family:Arial;font-size:11px}
