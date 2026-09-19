@@ -24,6 +24,9 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
       // Hide shell to show winamp background
       var shell = document.querySelector('.shell');
       if (shell) shell.style.display = 'none';
+      // Show winamp-player section
+      var winampPlayer = document.getElementById('winamp-player');
+      if (winampPlayer) winampPlayer.className = 'winamp';
       for (var ri = 0; ri < moduleKeys.length; ri++) { var rel = moduleEls[moduleKeys[ri]]; if (rel) rel.className = rel.className.replace(' hidden',''); }
     } else {
       // Show shell when exiting Winamp mode
