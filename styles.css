@@ -146,8 +146,8 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 
 /* Window contents */
 .wcontents{
-  background:#363658;
-  background: linear-gradient(to right, #363658, #4a4a70);
+  background:#0e0e16;
+  background: linear-gradient(to right, #0e0e16, #1a1a28);
 }
 
 /* ========== MAIN WINDOW ========== */
