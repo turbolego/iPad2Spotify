@@ -34,26 +34,28 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   id('winamp-stop').addEventListener('click', function () { winampCommand('pause'); });
   id('winamp-play').addEventListener('click', function () { winampCommand(current && current.is_playing ? 'pause' : 'play'); });
   id('winamp-pause').addEventListener('click', function () { winampCommand('pause'); });
-  // ---- Settings dropdown ----
+  // ---- Settings menu (click on WINAMP title to open) ----
   var settingsOpen = false;
-  var settingsDropdown = id('winamp-settings-dropdown');
-  var settingsBtn = id('winamp-settings-btn');
+  var settingsMenu = id('winamp-menu');
+  var winampTitle = id('winamp-main').querySelector('.wtitle-text');
   function toggleSettings() {
     settingsOpen = !settingsOpen;
-    settingsDropdown.className = 'winamp-settings-dropdown' + (settingsOpen ? '' : ' hidden');
+    settingsMenu.className = 'winamp-menu' + (settingsOpen ? '' : ' hidden');
     if (settingsOpen) {
-      var rect = settingsBtn.getBoundingClientRect();
-      settingsDropdown.style.left = (id('winamp-main').offsetLeft + 2) + 'px';
-      settingsDropdown.style.top = (rect.bottom + 2) + 'px';
+      var rect = winampTitle.getBoundingClientRect();
+      settingsMenu.style.left = (id('winamp-main').offsetLeft + 2) + 'px';
+      settingsMenu.style.top = (rect.bottom + 2) + 'px';
     }
   }
-  function closeSettings() { settingsOpen = false; settingsDropdown.className = 'winamp-settings-dropdown hidden'; }
-  settingsBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleSettings(); });
+  function closeSettings() { settingsOpen = false; settingsMenu.className = 'winamp-menu hidden'; }
+  if (winampTitle) {
+    winampTitle.addEventListener('click', function (e) { e.stopPropagation(); toggleSettings(); });
+  }
   document.addEventListener('click', function (e) {
-    if (settingsOpen && !settingsDropdown.contains(e.target) && e.target !== settingsBtn) closeSettings();
+    if (settingsOpen && !settingsMenu.contains(e.target) && e.target !== winampTitle) closeSettings();
   });
-  settingsDropdown.addEventListener('click', function (e) { e.stopPropagation(); });
-  settingsDropdown.querySelectorAll('.settings-item').forEach(function (item) {
+  settingsMenu.addEventListener('click', function (e) { e.stopPropagation(); });
+  settingsMenu.querySelectorAll('.menu-item').forEach(function (item) {
     item.addEventListener('click', function () {
       var action = item.getAttribute('data-action');
       if (action === 'set-bg') {
@@ -117,10 +119,10 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
     windowBounds[k] = { x: c.x, y: c.y, w: el.offsetWidth || WIN[k], h: el.offsetHeight || 116 };
   }
   function initWinLayout() {
-    placeWin('main', 20, 40);
-    placeWin('playlist', 20 + WIN.main + SNAP, 40);
-    placeWin('eq', 20, 40 + 126 + SNAP);
-    placeWin('milkdrop', 20 + WIN.main + SNAP, 40 + 126 + SNAP);
+    placeWin('main', 0, 0);
+    placeWin('playlist', 285, 0);
+    placeWin('eq', 0, 200);
+    placeWin('milkdrop', 285, 200);
   }
   function snapWin(k) {
     // Snap each other module to this one if within SNAP distance on an edge
@@ -228,9 +230,23 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
     if (winampOn && !milkAnim && isPlayingState) {
       initMilkdrop();
       milkAnim = setTimeout(milkdropFrame, 50);
+      // Restart the OldMilk RAF auto-loop when playing starts
+      if (window.__oldmilkStartLoop) window.__oldmilkStartLoop();
     }
   }
-  function stopMilkdrop() { if (milkAnim) { clearTimeout(milkAnim); milkAnim = null; } }
+  function stopMilkdrop() {
+    if (milkAnim) { clearTimeout(milkAnim); milkAnim = null; }
+    // Stop the OldMilk RAF auto-loop and force black canvas
+    // (OldMilk auto-loops via RAF at line 222-225 of oldmilk.js)
+    if (window.__oldmilkStopLoop) window.__oldmilkStopLoop();
+    var canvas = id('milkdrop-canvas');
+    if (canvas && canvas.getContext) {
+      try {
+        var g2d = canvas.getContext('2d');
+        if (g2d) { g2d.fillStyle = '#000'; g2d.fillRect(0, 0, canvas.width, canvas.height); }
+      } catch (e) {}
+    }
+  }
   initWinLayout();
   function pair(){var code=id('pairing-code').value.replace(/[^a-z0-9]/ig,'').toUpperCase();if(!code){message('Enter the code shown in Safari after Spotify login.');return}message('Pairing this fullscreen app…');request('POST','/api/auth/pair',{code:code},function(status,data){if(status===200){message('');showPlayer()}else if(status===0)message('Could not reach the server. Check the connection and try again.');else message((data&&data.error)||('Pairing failed (status '+status+'). Try a new code.'))})}
   function login(){window.location.href='/api/auth/login'}

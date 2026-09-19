@@ -201,28 +201,48 @@
 
 
 
-    return {
+    // Store canvas reference for external clearing
+    var vis = {
       setAudioSource: function (src) { audio = src; },
       loadPreset: function (name) { if (PRESETS[name]) { params = PRESETS[name]; return true; } return false; },
       presetNames: function () { return Object.keys(PRESETS); },
       render: render,
       resize: function (w, h) { width = w; height = h; canvas.width = w; canvas.height = h; },
       isWebGL: function () { return useGL; },
-      getBands: function () { return bandArr; }
+      getBands: function () { return bandArr; },
+      _canvas: canvas
     };
+    return vis;
   }
 
   // Auto-init if script loaded standalone
   if (typeof window !== 'undefined') {
+    var autoLoopHandle = null;
     function startVisualizer() {
       var canvas = findCanvas();
       if (canvas) {
         canvas.width = 275; canvas.height = 116;
         window.oldmilkViz = createVisualizer(canvas);
-        (function loop() {
+        function loop() {
+          if (window.__oldmilkPaused) { 
+            // When paused, clear canvas to black using WebGL
+            if (window.oldmilkViz && window.oldmilkViz._canvas) {
+              try {
+                var c = window.oldmilkViz._canvas;
+                var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+                if (gl) {
+                  gl.clearColor(0, 0, 0, 1);
+                  gl.clear(gl.COLOR_BUFFER_BIT);
+                }
+              } catch (e) {}
+            }
+            requestAnimationFrame(loop); 
+            return; 
+          }
           window.oldmilkViz.render();
-          requestAnimationFrame(loop);
-        })();
+          autoLoopHandle = requestAnimationFrame(loop);
+        }
+        autoLoopHandle = requestAnimationFrame(loop);
       }
     }
     if (document.readyState === 'complete') {
@@ -230,6 +250,23 @@
     } else {
       document.addEventListener('DOMContentLoaded', startVisualizer);
     }
+    window.__oldmilkPaused = false;
+    window.__oldmilkStopLoop = function() {
+      window.__oldmilkPaused = true;
+      if (autoLoopHandle) {
+        cancelAnimationFrame(autoLoopHandle);
+        autoLoopHandle = null;
+      }
+    };
+    window.__oldmilkStartLoop = function() {
+      window.__oldmilkPaused = false;
+      function loop() {
+        if (window.__oldmilkPaused) { requestAnimationFrame(loop); return; }
+        window.oldmilkViz.render();
+        autoLoopHandle = requestAnimationFrame(loop);
+      }
+      autoLoopHandle = requestAnimationFrame(loop);
+    };
   }
 
   return { createVisualizer: createVisualizer, PRESETS: PRESETS };
