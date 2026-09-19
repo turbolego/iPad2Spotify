@@ -21,8 +21,14 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
     if (on) {
       // Stop Milkdrop visualization when entering Winamp mode with no music playing
       if (window.__oldmilkStopLoop) window.__oldmilkStopLoop();
+      // Hide shell to show winamp background
+      var shell = document.querySelector('.shell');
+      if (shell) shell.style.display = 'none';
       for (var ri = 0; ri < moduleKeys.length; ri++) { var rel = moduleEls[moduleKeys[ri]]; if (rel) rel.className = rel.className.replace(' hidden',''); }
     } else {
+      // Show shell when exiting Winamp mode
+      var shell = document.querySelector('.shell');
+      if (shell) shell.style.display = 'block';
       stopMilkdrop();
       if (window.__oldmilkStartLoop) window.__oldmilkStartLoop();
     }
@@ -125,10 +131,10 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
     windowBounds[k] = { x: c.x, y: c.y, w: el.offsetWidth || WIN[k], h: el.offsetHeight || 116 };
   }
   function initWinLayout() {
-    placeWin('main', 0, 0);
-    placeWin('playlist', 285, 0);
-    placeWin('eq', 0, 200);
-    placeWin('milkdrop', 285, 200);
+    placeWin('main', 150, 170);
+    placeWin('playlist', 430, 170);
+    placeWin('eq', 150, 370);
+    placeWin('milkdrop', 430, 370);
   }
   function snapWin(k) {
     // Snap each other module to this one if within SNAP distance on an edge
