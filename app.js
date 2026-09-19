@@ -34,6 +34,64 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   id('winamp-stop').addEventListener('click', function () { winampCommand('pause'); });
   id('winamp-play').addEventListener('click', function () { winampCommand(current && current.is_playing ? 'pause' : 'play'); });
   id('winamp-pause').addEventListener('click', function () { winampCommand('pause'); });
+  // ---- Settings dropdown ----
+  var settingsOpen = false;
+  var settingsDropdown = id('winamp-settings-dropdown');
+  var settingsBtn = id('winamp-settings-btn');
+  function toggleSettings() {
+    settingsOpen = !settingsOpen;
+    settingsDropdown.className = 'winamp-settings-dropdown' + (settingsOpen ? '' : ' hidden');
+    if (settingsOpen) {
+      var rect = settingsBtn.getBoundingClientRect();
+      settingsDropdown.style.left = (id('winamp-main').offsetLeft + 2) + 'px';
+      settingsDropdown.style.top = (rect.bottom + 2) + 'px';
+    }
+  }
+  function closeSettings() { settingsOpen = false; settingsDropdown.className = 'winamp-settings-dropdown hidden'; }
+  settingsBtn.addEventListener('click', function (e) { e.stopPropagation(); toggleSettings(); });
+  document.addEventListener('click', function (e) {
+    if (settingsOpen && !settingsDropdown.contains(e.target) && e.target !== settingsBtn) closeSettings();
+  });
+  settingsDropdown.addEventListener('click', function (e) { e.stopPropagation(); });
+  settingsDropdown.querySelectorAll('.settings-item').forEach(function (item) {
+    item.addEventListener('click', function () {
+      var action = item.getAttribute('data-action');
+      if (action === 'set-bg') {
+        closeSettings();
+        id('winamp-bg-input').click();
+      } else if (action === 'clear-bg') {
+        closeSettings();
+        localStorage.removeItem('winamp-bg-image');
+        applyBackgroundImage();
+      }
+    });
+  });
+  // Background image handling
+  function applyBackgroundImage() {
+    var winampEl = id('winamp-player');
+    var bgData = localStorage.getItem('winamp-bg-image');
+    if (bgData) {
+      winampEl.style.backgroundImage = 'url(' + bgData + ')';
+      winampEl.classList.add('has-bg');
+    } else {
+      winampEl.style.backgroundImage = '';
+      winampEl.classList.remove('has-bg');
+    }
+  }
+  id('winamp-bg-input').addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      localStorage.setItem('winamp-bg-image', ev.target.result);
+      applyBackgroundImage();
+    };
+    reader.readAsDataURL(file);
+    // Reset input so the same file can be selected again
+    e.target.value = '';
+  });
+  // Apply background on load
+  applyBackgroundImage();
   // ---- Movable Webamp-style module windows (main/playlist/equalizer/milkdrop) ----
   var SNAP = 15;
   var WIN = { main: 275, playlist: 275, eq: 275, milkdrop: 275 };

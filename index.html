@@ -24,12 +24,16 @@
       <div id="winamp-mover" class="winamp-mover">
         <!-- MAIN window: player -->
         <div id="winamp-main" class="wmodule main" data-mod="main" style="left:0;top:0">
-          <div class="wtitle"><span class="wtitle-text">iPad2Spotify — Winamp</span><span class="wtitle-btns"><button class="wbtn-min" data-mod="main" aria-label="Shade">▬</button><button class="wbtn-close" data-mod="main" aria-label="Close window">×</button></span></div>
+          <div class="wtitle">
+            <button id="winamp-settings-btn" class="wbtn-settings" aria-label="Settings">☰</button>
+            <span class="wtitle-text">iPad2Spotify — Winamp</span>
+            <span class="wtitle-btns"><button class="wbtn-min" data-mod="main" aria-label="Shade">▬</button><button class="wbtn-close" data-mod="main" aria-label="Close window">×</button></span>
+          </div>
           <div class="wcontents main-contents">
             <div class="main-art"><img id="winamp-art" alt=""><div id="winamp-placeholder">♫</div></div>
             <div class="main-body">
               <div class="winamp-marquee"><span id="winamp-track" class="winamp-track-text">Nothing playing</span></div>
-              <div class="winamp-time"><span id="winamp-elapsed">0:00</span><span class="winamp-kbps">128 kbps</span><span id="winamp-duration">0:00</span></div>
+              <div class="winamp-time"><span id="winamp-elapsed">0:00</span><span id="winamp-kbps">128 kbps</span><span id="winamp-duration">0:00</span></div>
               <div class="winamp-osc" id="winamp-osc" aria-hidden="true"><span class="winamp-obar winamp-o1"></span><span class="winamp-obar winamp-o2"></span><span class="winamp-obar winamp-o3"></span><span class="winamp-obar winamp-o4"></span><span class="winamp-obar winamp-o5"></span><span class="winamp-obar winamp-o6"></span><span class="winamp-obar winamp-o7"></span><span class="winamp-obar winamp-o8"></span><span class="winamp-obar winamp-o9"></span><span class="winamp-obar winamp-o10"></span><span class="winamp-obar winamp-o11"></span><span class="winamp-obar winamp-o12"></span><span class="winamp-obar winamp-o13"></span><span class="winamp-obar winamp-o14"></span><span class="winamp-obar winamp-o15"></span><span class="winamp-obar winamp-o16"></span><span class="winamp-obar winamp-o17"></span><span class="winamp-obar winamp-o18"></span><span class="winamp-obar winamp-o19"></span><span class="winamp-obar winamp-o20"></span></div>
               <div class="winamp-trackbar-seek"><div id="winamp-fill" class="winamp-fill"></div></div>
               <div class="winamp-controls">
@@ -44,6 +48,13 @@
           </div>
           <div class="winamp-status" id="winamp-message">Updates every 5 seconds</div>
         </div>
+        <!-- Settings dropdown -->
+        <div id="winamp-settings-dropdown" class="winamp-settings-dropdown hidden">
+          <div class="settings-item" data-action="set-bg">Set background image...</div>
+          <div class="settings-item" data-action="clear-bg">Clear background</div>
+        </div>
+        <!-- Hidden file input for background image selection -->
+        <input type="file" id="winamp-bg-input" accept="image/*" class="hidden">
         <!-- PLAYLIST window -->
         <div id="winamp-playlist" class="wmodule playlist" data-mod="playlist" style="left:285px;top:0">
           <div class="wtitle"><span class="wtitle-text">◓ Playlist Editor</span><span class="wtitle-btns"><button class="wbtn-min" data-mod="playlist" aria-label="Shade">▬</button><button class="wbtn-close" data-mod="playlist" aria-label="Close window">×</button></span></div>
