@@ -18,7 +18,7 @@
     </section>
     <section id="player" class="player hidden">
       <div class="art" id="art-tap"><img id="art" alt="Album artwork"><div id="placeholder">♫</div><p id="minimalist-track" class="minimalist-track"><span id="minimalist-artist"></span><span id="minimalist-title"></span></p></div>
-      <div class="details"><p class="eyebrow">CURRENTLY PLAYING</p><h2 id="title">Nothing playing</h2><p id="artist">Start Spotify on another device</p><p id="album"></p><div class="controls"><button id="previous" class="round icon-prev" aria-label="Previous track"></button><button id="play" class="play icon-play" aria-label="Play"></button><button id="next" class="round icon-next" aria-label="Next track"></button></div><div class="timeline"><div class="timeline-track"><div id="timeline-fill" class="timeline-fill"></div></div><div class="timeline-time"><span id="time-elapsed">0:00</span><span id="time-duration">0:00</span></div></div><p id="player-message" class="message">Updates every 5 seconds</p><div class="actions"><button id="minimalist" class="secondary small-button">Minimalist View</button><button id="search-artist" class="secondary small-button">Search artist/playlist</button><button id="badge" class="secondary small-button">Create GitHub README Badge</button><button id="winamp-toggle" class="secondary small-button">Winamp Mode</button><button id="disconnect" class="link">Disconnect</button></div>
+      <div class="details"><p class="eyebrow">CURRENTLY PLAYING</p><h2 id="title">Nothing playing</h2><p id="artist">Start Spotify on another device</p><p id="album"></p><div class="controls"><button id="previous" class="round icon-prev" aria-label="Previous track"></button><button id="play" class="play icon-play" aria-label="Play"></button><button id="next" class="round icon-next" aria-label="Next track"></button></div><div class="timeline"><div class="timeline-track"><div id="timeline-fill" class="timeline-fill"></div></div><div class="timeline-time"><span id="time-elapsed">0:00</span><span id="time-duration">0:00</span></div></div><p id="player-message" class="message"><span id="loading-indicator" class="loading-indicator hidden" aria-hidden="true"></span><span id="player-message-text">Adaptive checks are enabled.</span></p><div class="actions"><button id="refresh" class="secondary small-button">Refresh now</button><button id="minimalist" class="secondary small-button">Minimalist View</button><button id="search-artist" class="secondary small-button">Search artist/playlist</button><button id="badge" class="secondary small-button">Create GitHub README Badge</button><button id="winamp-toggle" class="secondary small-button">Winamp Mode</button><button id="disconnect" class="link">Disconnect</button></div>
     </section>
     <section id="winamp-player" class="winamp hidden" aria-label="Winamp mode player">
       <div id="winamp-mover" class="winamp-mover">
@@ -40,24 +40,23 @@
             </div>
             <div class="main-controls">
               <div class="transport-row">
-                <button id="winamp-prev" class="winamp-btn" aria-label="Previous track">Previous</button>
-                <button id="winamp-play" class="winamp-btn winamp-play" aria-label="Play">Play</button>
-                <button id="winamp-pause" class="winamp-btn winamp-pause" aria-label="Pause">Pause</button>
-                <button id="winamp-stop" class="winamp-btn winamp-stop" aria-label="Stop">Stop</button>
-                <button id="winamp-next" class="winamp-btn winamp-next" aria-label="Next track">Next</button>
-                <button id="winamp-eject" class="winamp-btn" aria-label="Eject">Eject</button>
-              </div>
-              <div class="volume-row">
-                <span class="vol-label">VOL</span>
-                <div class="volbar"><div id="winamp-vol-fill" class="volbar-fill"></div></div>
+                <button id="winamp-prev" class="winamp-btn" aria-label="Previous track">|◀◀</button>
+                <button id="winamp-play" class="winamp-btn winamp-play" aria-label="Play">▶</button>
+                <button id="winamp-pause" class="winamp-btn winamp-pause" aria-label="Pause">❚❚</button>
+                <button id="winamp-stop" class="winamp-btn winamp-stop" aria-label="Stop">■</button>
+                <button id="winamp-next" class="winamp-btn winamp-next" aria-label="Next track">▶▶</button>
+                <button id="winamp-eject" class="winamp-btn winamp-eject" aria-label="Eject">⏏</button>
               </div>
               <div class="secondary-row">
                 <button id="winamp-shuffle" class="winamp-btn winamp-shuffle" aria-label="Shuffle">SHUFFLE</button>
                 <button id="winamp-repeat" class="winamp-btn winamp-repeat" aria-label="Repeat">REPEAT</button>
               </div>
+              <div class="volume-row">
+                <span class="vol-label">VOL</span>
+                <div class="volbar"><div id="winamp-vol-fill" class="volbar-fill"></div></div>
+              </div>
             </div>
           </div>
-          <div class="winamp-status" id="winamp-message">Updates every 5 seconds</div>
         </div>
         <!-- Settings menu -->
         <div id="winamp-menu" class="winamp-menu hidden">
@@ -73,27 +72,32 @@
           </div>
           <div class="wcontents playlist-contents">
             <div class="playlist-list" id="winamp-playlist-list">
-              <div class="playlist-row playlist-current"><span class="pl-num">1. DJ Mike Llama - Llama Whippin' Intro</span></div>
-              <div class="playlist-row"><span class="pl-num">2. Diablo Swing Orchestra - Heroines</span></div>
-              <div class="playlist-row"><span class="pl-num">3. Eclectek - We Are Going To Eclecteunk Your...</span></div>
-              <div class="playlist-row"><span class="pl-num">4. Auto-Pilot - Seventeen</span></div>
-              <div class="playlist-row"><span class="pl-num">5. Muha - Microphone</span></div>
-              <div class="playlist-row"><span class="pl-num">6. Just Plain Ant - Stumble</span></div>
-              <div class="playlist-row"><span class="pl-num">7. Sleaze - God Damn</span></div>
-              <div class="playlist-row"><span class="pl-num">8. Juanitos - Hola Hola Bossa Nova</span></div>
-              <div class="playlist-row"><span class="pl-num">9. Entertainment for the Braindead - Resolution</span></div>
-              <div class="playlist-row"><span class="pl-num">10. Nobara Hayakawa - Trail</span></div>
-              <div class="playlist-row"><span class="pl-num">11. Paper Navy - Tongue Tied</span></div>
-              <div class="playlist-row"><span class="pl-num">12. 60 Tigres - Garage</span></div>
-              <div class="playlist-row"><span class="pl-num">13. CM aka Creative - The Cycle</span></div>
+              <div class="playlist-row playlist-current"><span class="pl-num">1. DJ Mike Llama - Llama Whippin' Intro</span><span class="pl-dur">5:22</span></div>
+              <div class="playlist-row"><span class="pl-num">2. Diablo Swing Orchestra - Heroines</span><span class="pl-dur">5:22</span></div>
+              <div class="playlist-row"><span class="pl-num">3. Eclectek - We Are Going To Eclecteunk Your...</span><span class="pl-dur">0:49</span></div>
+              <div class="playlist-row"><span class="pl-num">4. Auto-Pilot - Seventeen</span><span class="pl-dur">5:08</span></div>
+              <div class="playlist-row"><span class="pl-num">5. Muha - Microphone</span><span class="pl-dur">3:49</span></div>
+              <div class="playlist-row"><span class="pl-num">6. Just Plain Ant - Stumble</span><span class="pl-dur">4:11</span></div>
+              <div class="playlist-row"><span class="pl-num">7. Sleaze - God Damn</span><span class="pl-dur">5:16</span></div>
+              <div class="playlist-row"><span class="pl-num">8. Juanitos - Hola Hola Bossa Nova</span><span class="pl-dur">3:29</span></div>
+              <div class="playlist-row"><span class="pl-num">9. Entertainment for the Braindead - Resolution</span><span class="pl-dur">5:11</span></div>
+              <div class="playlist-row"><span class="pl-num">10. Nobara Hayakawa - Trail</span><span class="pl-dur">3:47</span></div>
+              <div class="playlist-row"><span class="pl-num">11. Paper Navy - Tongue Tied</span><span class="pl-dur">3:55</span></div>
+              <div class="playlist-row"><span class="pl-num">12. 60 Tigres - Garage</span><span class="pl-dur">3:04</span></div>
+              <div class="playlist-row"><span class="pl-num">13. CM aka Creative - The Cycle</span><span class="pl-dur">5:01</span></div>
             </div>
             <div class="playlist-footer">
-              <button id="winamp-pl-add" class="pl-btn">ADD</button>
-              <button id="winamp-pl-remove" class="pl-btn">REM</button>
-              <button id="winamp-pl-sel" class="pl-btn">SEL</button>
-              <button id="winamp-pl-misc" class="pl-btn">MISC</button>
+              <div class="pl-btn-row">
+                <button id="winamp-pl-add" class="pl-btn">ADD</button>
+                <span class="btn-sep"></span>
+                <button id="winamp-pl-remove" class="pl-btn">REM</button>
+                <span class="btn-sep"></span>
+                <button id="winamp-pl-sel" class="pl-btn">SEL</button>
+                <span class="btn-sep"></span>
+                <button id="winamp-pl-misc" class="pl-btn">MISC</button>
+              </div>
               <span class="playlist-time">0:00:43:40</span>
-              <button id="winamp-pl-list" class="pl-btn">LIST</button>
+              <button id="winamp-pl-list" class="pl-btn" style="margin-left:8px">LIST</button>
             </div>
           </div>
         </div>

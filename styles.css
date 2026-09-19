@@ -96,10 +96,13 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 
 .winamp{
   position:fixed;z-index:8;top:0;left:0;width:100%;height:100%;
-  background:#c0c0c0;
-  background:-webkit-gradient(linear,left top,left bottom,from(#d8d8d8),to(#a0a0a0));
-  background:linear-gradient(to bottom,#d8d8d8,#a0a0a0);
+  background:#008080;
+  background:-webkit-gradient(linear,left top,left bottom,from(#00a0a0),to(#006060));
+  background:linear-gradient(to bottom,#00a0a0,#006060);
   display:block;padding:0;box-sizing:border-box;overflow:hidden;
+}
+.winamp.mobile-bg{
+  background:#008080;
 }
 .winamp-mover{position:absolute;top:0;left:0;width:100%;height:100%}
 
@@ -115,11 +118,11 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 /* Window buttons — Windows 95/98 style (empty grey boxes) */
 .wtitle-btns{display:-webkit-flex;display:flex}
 .wtitle-btns button{
-  width:14px;height:11px;
-  background:#808383;
-  background:-webkit-gradient(linear,left top,left bottom,from(#a0a3a4),to(#606364));
-  background:linear-gradient(to bottom,#a0a3a4,#606364);
-  border:1px outset #888;
+  width:11px;height:11px;
+  background:#909090;
+  background:-webkit-gradient(linear,left top,left bottom,from(#b0b0b0),to(#707070));
+  background:linear-gradient(to bottom,#b0b0b0,#707070);
+  border:1px outset #606060;
   padding:0;cursor:pointer;
 }
 .wtitle-btns button:active,.wtitle-btns button:hover{
@@ -132,16 +135,16 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 /* Title bar — dark metallic gradient */
 .wtitle{
   height:18px;
-  background:#4a4d4e;
-  background:-webkit-gradient(linear,left top,left bottom,from(#6a6d6e),color-stop(.5,#5a5d5e),to(#3a3f3a));
-  background:linear-gradient(to bottom,#6a6d6e,#5a5d5e 50%,#3a3f3a);
+  background:#2a1a3a;
+  background:-webkit-gradient(linear,left top,left bottom,from(#4a2a5a),color-stop(.5,#3a1a4a),to(#1a0a2a));
+  background:linear-gradient(to bottom,#4a2a5a,#3a1a4a 50%,#1a0a2a);
   color:#e8e4d8;
   font-size:11px;font-weight:bold;letter-spacing:.04em;
   padding:0 4px;
   display:-webkit-flex;display:flex;
   -webkit-align-items:center;align-items:center;
   -webkit-justify-content:space-between;justify-content:space-between;
-  border-bottom:1px solid #14161a;
+  border-bottom:1px solid #000;
   border-radius:2px 2px 0 0;
   cursor:move;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 0 -1px 0 #000;
@@ -158,8 +161,8 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 
 /* LCD screen — inset bezel, no album art */
 .main-lcd{
-  background:#0a0e0a;
-  border:2px inset #3a3f3a;
+  background:#000;
+  border:1px inset #2a2d2e;
   padding:4px;
   margin-bottom:6px;
 }
@@ -264,17 +267,22 @@ body.winamp-active .winamp-obar:nth-child(20){animation-delay:.95s}
   display:-webkit-flex;display:flex;
   -webkit-align-items:center;align-items:center;
   margin-top:4px;
+  position:absolute;
+  right:8px;
+  top:50%;
+  transform:translateY(-50%);
 }
 .vol-label{
   color:#c8c4b8;
   font-size:9px;
   font-weight:bold;
-  margin-right:4px;
-  width:20px;
+  margin-right:2px;
+  width:16px;
 }
 .volbar{
   flex:1;
-  height:8px;
+  width:8px;
+  height:60px;
   background:#101210;
   border:1px inset #3a3f3a;
   overflow:hidden;
@@ -283,7 +291,9 @@ body.winamp-active .winamp-obar:nth-child(20){animation-delay:.95s}
   background:#8be08b;
   background:-webkit-linear-gradient(#9be39b,#3f8a3f);
   background:linear-gradient(#9be39b,#3f8a3f);
-  height:100%;
+  width:100%;
+  height:0;
+  transition:height .1s;
 }
 
 .winamp-status{
@@ -299,7 +309,7 @@ body.winamp-active .winamp-obar:nth-child(20){animation-delay:.95s}
 
 .playlist-contents{background:#060808}
 .playlist-list{
-  height:140px;
+  height:200px;
   overflow-y:auto;
   padding:2px 4px;
   font-family:Arial;
@@ -311,8 +321,15 @@ body.winamp-active .winamp-obar:nth-child(20){animation-delay:.95s}
   border-bottom:1px solid #1a1c1a;
   color:#0f0;
   white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+  display:-webkit-flex;display:flex;
+  -webkit-justify-content:space-between;justify-content:space-between;
+}
+.playlist-row .pl-num{flex:1;overflow:hidden;text-overflow:ellipsis}
+.playlist-row .pl-dur{
+  color:#0f0;
+  font-size:9px;
+  margin-left:8px;
+  flex-shrink:0;
 }
 .playlist-current{color:#fff;background:#1a2a1a}
 .playlist-row:hover{background:#1a2a1a}
@@ -334,15 +351,24 @@ body.winamp-active .winamp-obar:nth-child(20){animation-delay:.95s}
   padding:2px 4px;
   cursor:pointer;
 }
-.pl-btn:active{
-  background:#444;
-  border-style:inset;
+.pl-btn-row{
+  display:-webkit-flex;display:flex;
+  -webkit-gap:2px;gap:2px;
+  align-items:center;
+}
+.pl-btn-row .btn-sep{
+  width:8px;
+  flex-shrink:0;
 }
 .playlist-time{
   color:#888;
   font-size:9px;
   font-family:"Courier New",monospace;
   margin:0 4px;
+}
+.pl-btn:active{
+  background:#444;
+  border-style:inset;
 }
 
 /* ========== EQUALIZER WINDOW ========== */
