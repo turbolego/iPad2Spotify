@@ -236,7 +236,7 @@
                 }
               } catch (e) {}
             }
-            requestAnimationFrame(loop); 
+            // Don't re-schedule - wait for external start
             return; 
           }
           window.oldmilkViz.render();
@@ -253,6 +253,17 @@
     window.__oldmilkPaused = false;
     window.__oldmilkStopLoop = function() {
       window.__oldmilkPaused = true;
+      // Clear canvas immediately
+      if (window.oldmilkViz && window.oldmilkViz._canvas) {
+        try {
+          var c = window.oldmilkViz._canvas;
+          var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+          if (gl) {
+            gl.clearColor(0, 0, 0, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+          }
+        } catch (e) {}
+      }
       if (autoLoopHandle) {
         cancelAnimationFrame(autoLoopHandle);
         autoLoopHandle = null;
@@ -261,7 +272,7 @@
     window.__oldmilkStartLoop = function() {
       window.__oldmilkPaused = false;
       function loop() {
-        if (window.__oldmilkPaused) { requestAnimationFrame(loop); return; }
+        if (window.__oldmilkPaused) { return; }
         window.oldmilkViz.render();
         autoLoopHandle = requestAnimationFrame(loop);
       }

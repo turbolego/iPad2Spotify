@@ -18,8 +18,14 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   }
   function setWinamp(on) {
     winampOn = on;
-    if (on) { for (var ri = 0; ri < moduleKeys.length; ri++) { var rel = moduleEls[moduleKeys[ri]]; if (rel) rel.className = rel.className.replace(' hidden',''); } } else { stopMilkdrop(); }
-    id('winamp-player').className = 'winamp' + (on ? '' : ' hidden');
+    if (on) {
+      // Stop Milkdrop visualization when entering Winamp mode with no music playing
+      if (window.__oldmilkStopLoop) window.__oldmilkStopLoop();
+      for (var ri = 0; ri < moduleKeys.length; ri++) { var rel = moduleEls[moduleKeys[ri]]; if (rel) rel.className = rel.className.replace(' hidden',''); }
+    } else {
+      stopMilkdrop();
+      if (window.__oldmilkStartLoop) window.__oldmilkStartLoop();
+    }
     id('player').className = 'player' + (on ? ' hidden' : '');
     id('winamp-toggle').innerHTML = on ? 'Exit Winamp' : 'Winamp Mode';
     id('winamp-toggle').className = on ? 'secondary small-button winamp-on' : 'secondary small-button';
@@ -203,11 +209,15 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url='https://'+loc
   // EQ ON / AUTO toggles
   var eqOn = true, eqAuto = false;
   function refreshEqToggles() {
-    id('eq-on').className = 'eq-toggle' + (eqOn ? ' eq-toggle-active' : '');
-    id('eq-auto').className = 'eq-toggle' + (eqAuto ? ' eq-toggle-active' : '');
+    var eqOnEl = id('eq-on');
+    var eqAutoEl = id('eq-auto');
+    if (eqOnEl) eqOnEl.className = 'eq-btn' + (eqOn ? ' eq-on' : '');
+    if (eqAutoEl) eqAutoEl.className = 'eq-btn' + (eqAuto ? ' eq-on' : '');
   }
-  id('eq-on').addEventListener('click', function () { eqOn = !eqOn; if (!eqOn) eqAuto = false; refreshEqToggles(); });
-  id('eq-auto').addEventListener('click', function () { eqAuto = !eqAuto; if (eqAuto) eqOn = true; refreshEqToggles(); });
+  var eqOnEl = id('eq-on');
+  var eqAutoEl = id('eq-auto');
+  if (eqOnEl) eqOnEl.addEventListener('click', function () { eqOn = !eqOn; if (!eqOn) eqAuto = false; refreshEqToggles(); });
+  if (eqAutoEl) eqAutoEl.addEventListener('click', function () { eqAuto = !eqAuto; if (eqAuto) eqOn = true; refreshEqToggles(); });
   // OldMilk package visualizer (WebGL 1 with ES5-safe fallback).
   var milkViz = null, milkAnim = null;
   function initMilkdrop() {

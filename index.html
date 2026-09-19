@@ -47,13 +47,13 @@
                 <button id="winamp-next" class="winamp-btn winamp-next" aria-label="Next track">Next</button>
                 <button id="winamp-eject" class="winamp-btn" aria-label="Eject">Eject</button>
               </div>
-              <div class="secondary-row">
-                <button id="winamp-shuffle" class="winamp-btn winamp-shuffle" aria-label="Shuffle">SHUFFLE</button>
-                <button id="winamp-repeat" class="winamp-btn winamp-repeat" aria-label="Repeat">REPEAT</button>
-              </div>
               <div class="volume-row">
                 <span class="vol-label">VOL</span>
                 <div class="volbar"><div id="winamp-vol-fill" class="volbar-fill"></div></div>
+              </div>
+              <div class="secondary-row">
+                <button id="winamp-shuffle" class="winamp-btn winamp-shuffle" aria-label="Shuffle">SHUFFLE</button>
+                <button id="winamp-repeat" class="winamp-btn winamp-repeat" aria-label="Repeat">REPEAT</button>
               </div>
             </div>
           </div>
@@ -106,9 +106,11 @@
           <div class="wcontents eq-contents">
             <div class="eq-top-row">
               <button id="eq-on" class="eq-btn eq-on">ON</button>
+              <button id="eq-auto" class="eq-btn">AUTO</button>
               <button id="eq-preset" class="eq-btn">PRESETS</button>
             </div>
             <div class="eq-bands" id="eq-bands">
+              <div class="eq-band"><span class="eq-val">+0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="preamp" aria-label="Preamp"><span class="eq-label">PREAMP</span></div>
               <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="60" aria-label="60Hz"><span class="eq-label">60</span></div>
               <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="170" aria-label="170Hz"><span class="eq-label">170</span></div>
               <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="310" aria-label="310Hz"><span class="eq-label">310</span></div>
