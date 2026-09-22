@@ -1,0 +1,885 @@
+/* iPad2Spotify — Winamp Mode (winamp2-js skin) */
+/* Based on winamp2-js by Jordan Eldredge (MIT License) */
+/* Adapted for iPad2Spotify's existing HTML structure */
+/* https://github.com/rvpanoz/winamp2-js — MIT licensed */
+
+/* ============================================ */
+/*  winamp2-js base styles (adapted)           */
+/*  Copyright (c) 2015 Jordan Eldredge         */
+/*  MIT License — https://github.com/rvpanoz/winamp2-js */
+/* ============================================ */
+
+.winamp-mode {
+  position: fixed;
+  z-index: 8;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #224eb7;
+  overflow: hidden;
+}
+
+.winamp-mode .window {
+  position: absolute;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -o-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+  -webkit-transform: translateZ(0);
+}
+
+.winamp-mode input[type="range"] {
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+.winamp-mode input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+
+.winamp-mode input[type="range"]::-moz-range-thumb {
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+
+.winamp-mode input[type="range"]::-moz-range-track {
+  border: none;
+  background: none;
+}
+
+.winamp-mode input[type="range"]:focus {
+  outline: none;
+}
+
+.winamp-mode input[type="range"]::-moz-focus-outer {
+  border: 0;
+}
+
+.winamp-mode a:focus {
+  outline: none;
+}
+
+@-webkit-keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.winamp-mode .character {
+  display: inline-block;
+  vertical-align: top;
+  width: 5px;
+  height: 6px;
+  text-indent: -9999px;
+}
+
+.winamp-mode .mini-time {
+  display: block;
+  height: 6px;
+  width: 25px;
+}
+
+.winamp-mode .mini-time.blinking .character:not(.background-character) {
+  -webkit-animation: blink 2s step-start 1s infinite;
+  animation: blink 2s step-start 1s infinite;
+}
+
+.winamp-mode .mini-time .background-character {
+  z-index: 1;
+}
+
+.winamp-mode .mini-time .character {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+}
+
+/* ============================================ */
+/*  MAIN WINDOW — targets existing HTML IDs     */
+/*  winamp2-js main-window.css adapted         */
+/* ============================================ */
+
+#winamp-main {
+  position: absolute;
+  width: 275px;
+  height: 116px;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -o-crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+}
+
+/* Title bar — winamp2-js 14px metallic style for .wtitle */
+#winamp-main .wtitle {
+  height: 14px;
+  background: linear-gradient(to bottom, #657995 0%, #40516d 45%, #202c40 100%);
+  color: #efc87a;
+  font-weight: bold;
+  letter-spacing: .04em;
+  text-align: left;
+  overflow: hidden;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: flex-start;
+  justify-content: flex-start;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 0 2px;
+  position: relative;
+}
+
+#winamp-main .wtitle-text {
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  line-height: 10px;
+  color: #f5e6c8;
+  white-space: nowrap;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+#winamp-main .wtitle-icon {
+  width: 9px;
+  height: 9px;
+  margin: 0 3px 0 2px;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 30% 30%, #b8f6ff, #2585a8 75%);
+  border-radius: 1px;
+}
+
+#winamp-main .wtitle-accent {
+  flex: 1;
+  height: 7px;
+  margin: 0 4px;
+  background: repeating-linear-gradient(45deg, #e8c874, #e8c874 2px, #81642d 2px, #81642d 4px);
+  border-radius: 1px;
+}
+
+#winamp-main .wtitle-btns {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+#winamp-main .wtitle-btns button {
+  width: 9px;
+  height: 9px;
+  margin-left: 3px;
+  border-radius: 0;
+  background: #3a4a5c;
+  border: 1px solid #1a2530;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0;
+  line-height: 0;
+}
+
+#winamp-main .wtitle-btns button:active {
+  background: #1a2530;
+  border-style: inset;
+}
+
+/* Window contents */
+#winamp-main .wcontents {
+  background: transparent;
+  margin-top: 0;
+  padding: 2px;
+}
+
+#winamp-main .main-contents {
+  height: 100px;
+  padding: 1px;
+  overflow: hidden;
+}
+
+/* LCD screen — winamp2-js inset bezel */
+#winamp-main .main-lcd {
+  background: #0a0a12;
+  border: 2px inset #161d29;
+  padding: 2px;
+  margin: 3px;
+}
+
+/* LCD row 1: visualizer + track marquee */
+#winamp-main .lcd-row1 {
+  display: -webkit-flex;
+  display: flex;
+}
+
+#winamp-main .lcd-vis {
+  width: 58px;
+  height: 18px;
+  padding: 1px;
+  margin-right: 4px;
+}
+
+/* Bar visualizer — winamp2-js bar style */
+#winamp-main .winamp-obar {
+  display: block;
+  height: 2px;
+  width: 4px;
+  margin: 1px;
+  background: #b6d64b;
+  opacity: 0.3;
+}
+
+#winamp-main.winamp-playing .winamp-obar {
+  opacity: 1;
+  animation: bar-bounce 0.5s ease-in-out infinite alternate;
+}
+
+@-webkit-keyframes bar-bounce {
+  0% { height: 2px; }
+  100% { height: 14px; }
+}
+
+@keyframes bar-bounce {
+  0% { height: 2px; }
+  100% { height: 14px; }
+}
+
+#winamp-main .lcd-track {
+  height: 12px;
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  color: #b6d64b;
+  overflow: hidden;
+}
+
+#winamp-main .lcd-track-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#winamp-main .lcd-track-text.marquee {
+  animation: marquee-scroll 8s linear infinite;
+}
+
+@-webkit-keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* LCD row 2: time, kbps, khz, mono/stereo */
+#winamp-main .lcd-row2 {
+  display: -webkit-flex;
+  display: flex;
+  margin-top: 2px;
+}
+
+#winamp-main .lcd-readout {
+  font-family: "Courier New", monospace;
+  font-size: 9px;
+  color: #b6d64b;
+  margin-right: 8px;
+}
+
+#winamp-main .lcd-readout b {
+  color: #b6d64b;
+}
+
+#winamp-main .lcd-chan {
+  display: -webkit-flex;
+  display: flex;
+  font-family: "Courier New", monospace;
+  font-size: 8px;
+  color: #888;
+}
+
+#winamp-main .lcd-chan b {
+  margin-right: 2px;
+}
+
+#winamp-main .lcd-mono {
+  color: #888;
+}
+
+#winamp-main .lcd-stereo {
+  color: #b6d64b;
+}
+
+/* LCD row 3: volume, balance, EQ/PL toggles */
+#winamp-main .lcd-row3 {
+  margin-top: 2px;
+  display: -webkit-flex;
+  display: flex;
+  align-items: center;
+}
+
+#winamp-main .slider-label {
+  font-family: "Courier New", monospace;
+  font-size: 8px;
+  color: #888;
+  margin-right: 2px;
+  width: 20px;
+}
+
+#winamp-main .bal-label {
+  margin-left: 8px;
+}
+
+/* Horizontal bar sliders — winamp2-js style */
+#winamp-main .hbar {
+  position: relative;
+  height: 6px;
+  width: 68px;
+  background: #202224;
+  border: 1px inset #4a4d4e;
+  cursor: pointer;
+}
+
+#winamp-main .hbar-sm {
+  width: 38px;
+}
+
+#winamp-main .hbar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #b6d64b;
+  width: 75%;
+}
+
+#winamp-main .hbar-knob {
+  position: absolute;
+  top: -2px;
+  width: 10px;
+  height: 10px;
+  background: #b6d64b;
+  border: 1px solid #4a5c25;
+  border-radius: 0;
+  left: 75%;
+  margin-left: -5px;
+  cursor: pointer;
+}
+
+/* EQ/PL toggle mini buttons */
+#winamp-main .mini-toggle {
+  font-size: 7px;
+  padding: 1px 4px;
+  background: #202224;
+  background: linear-gradient(to bottom, #3a3f3a, #1a1c1d);
+  border: 1px outset #4a4d4e;
+  color: #888;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+#winamp-main .mini-toggle:active {
+  background: #444;
+  border-style: inset;
+}
+
+#winamp-main .mini-toggle.winamp-btn-active {
+  background: #b6d64b;
+  color: #1a1c1d;
+  border-color: #b6d64b;
+}
+
+/* LCD progress bar */
+#winamp-main .lcd-progress {
+  height: 3px;
+  margin-top: 2px;
+  background: #161d29;
+  border: 1px inset #0a0a12;
+}
+
+#winamp-main .lcd-progress-fill {
+  height: 100%;
+  background: #b6d64b;
+  width: 0%;
+}
+
+#winamp-main .lcd-progress-knob {
+  position: absolute;
+  top: -2px;
+  width: 8px;
+  height: 5px;
+  background: #b6d64b;
+  border: 1px solid #4a5c25;
+  left: 0%;
+  margin-left: -4px;
+}
+
+/* Main controls — transport buttons */
+#winamp-main .main-controls {
+  margin-top: 1px;
+}
+
+#winamp-main .transport-row {
+  margin-bottom: 1px;
+}
+
+#winamp-main .transport-row .winamp-btn {
+  width: 23px;
+  height: 17px;
+  font-size: 9px;
+  background: #3a4a5c;
+  background: linear-gradient(to bottom, #55657a, #2a3a4c);
+  border: 1px outset #8090a5;
+  cursor: pointer;
+  line-height: 17px;
+  text-align: center;
+  color: #f5f1e8;
+  font-family: "Courier New", monospace;
+  box-shadow: inset 1px 1px 0 #8090a5, inset -1px -1px 0 #182132;
+}
+
+#winamp-main .transport-row .winamp-btn:active {
+  border-style: inset;
+  background: #1a2530;
+}
+
+#winamp-main .transport-row .winamp-btn.winamp-play {
+  color: #b6d64b;
+}
+
+#winamp-main .transport-row .winamp-btn.winamp-pause {
+  color: #b6d64b;
+}
+
+#winamp-main .transport-row .winamp-btn.winamp-stop {
+  color: #b6d64b;
+}
+
+#winamp-main .secondary-row {
+  display: -webkit-flex;
+  display: flex;
+  align-items: center;
+}
+
+#winamp-main .secondary-row .winamp-btn {
+  width: 36px;
+  height: 17px;
+  font-size: 7px;
+  background: #3a4a5c;
+  background: linear-gradient(to bottom, #55657a, #2a3a4c);
+  border: 1px outset #8090a5;
+  cursor: pointer;
+  line-height: 17px;
+  text-align: center;
+  color: #888;
+  font-family: "Courier New", monospace;
+  box-shadow: inset 1px 1px 0 #8090a5, inset -1px -1px 0 #182132;
+}
+
+#winamp-main .secondary-row .winamp-btn:active {
+  border-style: inset;
+  background: #1a2530;
+}
+
+#winamp-main .secondary-row .winamp-btn.winamp-btn-active {
+  background: #b6d64b;
+  color: #1a1c1d;
+  border-color: #b6d64b;
+}
+
+#winamp-main .clutch-icon {
+  width: 15px;
+  height: 15px;
+  margin-left: auto;
+}
+
+/* ============================================ */
+/*  PLAYLIST WINDOW                             */
+/*  winamp2-js playlist-window.css adapted     */
+/* ============================================ */
+
+#winamp-playlist .playlist-window {
+  display: -webkit-flex;
+  display: flex;
+  flex-direction: column;
+}
+
+#winamp-playlist .playlist-top {
+  width: 100%;
+  min-height: 20px;
+  max-height: 20px;
+  position: relative;
+  display: -webkit-flex;
+  display: flex;
+}
+
+#winamp-playlist .playlist-top-left {
+  width: 25px;
+}
+
+#winamp-playlist .playlist-top-left-spacer {
+  width: 12px;
+}
+
+#winamp-playlist .playlist-top-left-fill {
+  -webkit-flex-grow: 1;
+  flex-grow: 1;
+}
+
+#winamp-playlist .playlist-top-title {
+  width: 100px;
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  color: #f5e6c8;
+  padding: 3px 0;
+}
+
+#winamp-playlist .playlist-top-right-spacer {
+  width: 13px;
+}
+
+#winamp-playlist .playlist-top-right-fill {
+  -webkit-flex-grow: 1;
+  flex-grow: 1;
+}
+
+#winamp-playlist .playlist-top-right {
+  width: 25px;
+}
+
+#winamp-playlist .playlist-middle {
+  -webkit-flex-grow: 1;
+  flex-grow: 1;
+  display: -webkit-flex;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+#winamp-playlist .playlist-middle-left {
+  background-repeat: repeat-y;
+  width: 12px;
+  min-width: 12px;
+}
+
+#winamp-playlist .playlist-middle-center {
+  -webkit-flex-grow: 1;
+  flex-grow: 1;
+  padding: 3px 0;
+  min-width: 0;
+}
+
+#winamp-playlist .playlist-tracks {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex: 1 0 auto;
+  flex: 1 0 auto;
+  font-size: 9px;
+  line-height: 13px;
+  letter-spacing: 0.5px;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+#winamp-playlist .playlist-track-numbers > div,
+#winamp-playlist .playlist-track-durations > div {
+  padding-right: 3px;
+  text-align: right;
+}
+
+#winamp-playlist .playlist-track-numbers > div {
+  text-align: center;
+  padding-left: 1px;
+}
+
+#winamp-playlist .playlist-track-titles {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+#winamp-playlist .playlist-track-titles > div {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#winamp-playlist .playlist-middle-right {
+  background-repeat: repeat-y;
+  background-position: top right;
+  width: 20px;
+  min-width: 20px;
+  position: relative;
+  padding-bottom: 18px;
+}
+
+#winamp-playlist .playlist-bottom {
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  position: relative;
+}
+
+#winamp-playlist .playlist-bottom-left {
+  width: 125px;
+  height: 100%;
+  position: absolute;
+}
+
+#winamp-playlist .playlist-bottom-right {
+  width: 150px;
+  height: 100%;
+  position: absolute;
+  right: 0;
+}
+
+#winamp-playlist .playlist-running-time {
+  position: absolute;
+  top: 10px;
+  left: 7px;
+  height: 10px;
+  font-family: "Courier New", monospace;
+  font-size: 9px;
+  color: #888;
+}
+
+#winamp-playlist .playlist-action-buttons {
+  position: absolute;
+  top: 22px;
+  left: 3px;
+  display: -webkit-flex;
+  display: flex;
+}
+
+#winamp-playlist .playlist-action-buttons > .pl-btn {
+  height: 10px;
+  width: 10px;
+  font-size: 7px;
+  padding: 0 2px;
+  background: #202224;
+  background: linear-gradient(to bottom, #3a3f3a, #1a1c1d);
+  border: 1px outset #4a4d4e;
+  color: #888;
+  cursor: pointer;
+  line-height: 10px;
+  text-align: center;
+}
+
+#winamp-playlist .playlist-action-buttons > .pl-btn:active {
+  background: #444;
+  border-style: inset;
+}
+
+#winamp-playlist .pl-btn-list {
+  margin-left: 8px;
+  line-height: 1.1;
+  font-size: 7px;
+  padding: 1px 5px;
+}
+
+/* ============================================ */
+/*  EQUALIZER WINDOW                            */
+/*  winamp2-js equalizer-window.css adapted    */
+/* ============================================ */
+
+#winamp-eq .eq-window {
+  height: 116px;
+  width: 275px;
+}
+
+#winamp-eq .eq-top {
+  height: 14px;
+  width: 275px;
+  position: relative;
+}
+
+#winamp-eq .eq-top .eq-btn {
+  position: absolute;
+  height: 12px;
+  font-size: 8px;
+  background: #202224;
+  background: linear-gradient(to bottom, #3a3f3a, #1a1c1d);
+  border: 1px outset #4a4d4e;
+  color: #888;
+  cursor: pointer;
+  line-height: 12px;
+  text-align: center;
+  padding: 0 4px;
+}
+
+#winamp-eq .eq-top .eq-btn:active {
+  background: #444;
+  border-style: inset;
+}
+
+#winamp-eq .eq-top #eq-on {
+  width: 26px;
+  top: 18px;
+  left: 14px;
+  color: #8be08b;
+  font-weight: bold;
+}
+
+#winamp-eq .eq-top #eq-auto {
+  width: 32px;
+  top: 18px;
+  left: 40px;
+}
+
+#winamp-eq .eq-top #eq-preset {
+  width: 44px;
+  top: 18px;
+  left: 217px;
+}
+
+#winamp-eq #eq-graph {
+  position: absolute;
+  width: 113px;
+  height: 19px;
+  top: 17px;
+  left: 86px;
+}
+
+#winamp-eq #eq-graph polyline {
+  fill: none;
+  stroke: #b6d64b;
+  stroke-width: 1;
+}
+
+#winamp-eq .eq-band {
+  position: absolute;
+  width: 14px;
+  height: 63px;
+}
+
+/* Vertical EQ sliders — winamp2-js style */
+#winamp-eq .eq-band .eq-slider-wrap {
+  position: relative;
+  width: 14px;
+  height: 54px;
+  margin: 2px 0;
+}
+
+#winamp-eq .eq-band .eq-slider-wrap .eq-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 54px;
+  height: 14px;
+  margin: -7px 0 0 -27px;
+  -webkit-transform: rotate(-90deg);
+  transform: rotate(-90deg);
+  background: #252a2d;
+  background: linear-gradient(to right, #111, #5b6260 48%, #171a1b);
+  border: 1px solid #333;
+  cursor: pointer;
+  padding: 0;
+}
+
+#winamp-eq .eq-band .eq-slider-wrap .eq-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 6px;
+  background: #b6d64b;
+  border: 1px solid #4a5c25;
+}
+
+#winamp-eq .eq-band .eq-slider-wrap .eq-slider::-moz-range-thumb {
+  width: 13px;
+  height: 6px;
+  background: #b6d64b;
+  border: 1px solid #4a5c25;
+}
+
+#winamp-eq .eq-band .eq-val {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  margin-left: -8px;
+  font-family: "Courier New", monospace;
+  font-size: 8px;
+  color: #b6d64b;
+}
+
+#winamp-eq .eq-band .eq-label {
+  position: absolute;
+  bottom: -12px;
+  left: 50%;
+  margin-left: -8px;
+  font-family: "Courier New", monospace;
+  font-size: 7px;
+  color: #888;
+  white-space: nowrap;
+}
+
+/* ============================================ */
+/*  MILKDROP WINDOW                             */
+/* ============================================ */
+
+#winamp-milkdrop .milkdrop-window {
+  height: 116px;
+  width: 275px;
+}
+
+#winamp-milkdrop .milkdrop-top {
+  height: 14px;
+  width: 275px;
+  position: relative;
+}
+
+#winamp-milkdrop .milkdrop-canvas-wrap {
+  position: relative;
+  width: 275px;
+  height: 96px;
+}
+
+#winamp-milkdrop .milkdrop-canvas {
+  width: 275px;
+  height: 96px;
+  display: block;
+}
+
+/* ============================================ */
+/*  SETTINGS MENU — winamp2-js context menu     */
+/* ============================================ */
+
+#winamp-menu {
+  position: absolute;
+  z-index: 10;
+  background: #1a1c1d;
+  border: 1px solid #4a4d4e;
+  padding: 2px 0;
+  min-width: 140px;
+  box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+#winamp-menu .menu-item {
+  padding: 3px 12px;
+  font-size: 11px;
+  color: #f5f1e8;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#winamp-menu .menu-item:hover {
+  background: #b6d64b;
+  color: #1a1c1d;
+}
