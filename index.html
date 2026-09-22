@@ -24,20 +24,35 @@
   <section id="winamp-player" class="winamp hidden" aria-label="Winamp mode player">
       <div id="winamp-mover" class="winamp-mover">
         <!-- MAIN window: player -->
-        <div id="winamp-main" class="wmodule main" data-mod="main" style="left:150px;top:170px">
+        <div id="winamp-main" class="wmodule main" data-mod="main" style="left:20px;top:40px">
           <div class="wtitle">
+            <span class="wtitle-icon" aria-hidden="true"></span>
+            <span class="wtitle-accent" aria-hidden="true"></span>
             <span class="wtitle-text">WINAMP</span>
+            <span class="wtitle-accent" aria-hidden="true"></span>
             <span class="wtitle-btns"><button class="wbtn-min" data-mod="main" aria-label="Shade"></button><button class="wbtn-close" data-mod="main" aria-label="Close window"></button></span>
           </div>
           <div class="wcontents main-contents">
               <div class="main-lcd">
-                <div class="lcd-spectrum" id="winamp-osc" aria-hidden="true">
-                  <span class="winamp-obar winamp-o1"></span><span class="winamp-obar winamp-o2"></span><span class="winamp-obar winamp-o3"></span><span class="winamp-obar winamp-o4"></span><span class="winamp-obar winamp-o5"></span><span class="winamp-obar winamp-o6"></span><span class="winamp-obar winamp-o7"></span><span class="winamp-obar winamp-o8"></span><span class="winamp-obar winamp-o9"></span><span class="winamp-obar winamp-o10"></span><span class="winamp-obar winamp-o11"></span><span class="winamp-obar winamp-o12"></span><span class="winamp-obar winamp-o13"></span><span class="winamp-obar winamp-o14"></span><span class="winamp-obar winamp-o15"></span><span class="winamp-obar winamp-o16"></span><span class="winamp-obar winamp-o17"></span><span class="winamp-obar winamp-o18"></span><span class="winamp-obar winamp-o19"></span><span class="winamp-obar winamp-o20"></span>
+                <div class="lcd-row1">
+                  <div class="lcd-vis" id="winamp-osc" aria-hidden="true">
+                    <span class="winamp-obar winamp-o1"></span><span class="winamp-obar winamp-o2"></span><span class="winamp-obar winamp-o3"></span><span class="winamp-obar winamp-o4"></span><span class="winamp-obar winamp-o5"></span><span class="winamp-obar winamp-o6"></span><span class="winamp-obar winamp-o7"></span><span class="winamp-obar winamp-o8"></span><span class="winamp-obar winamp-o9"></span><span class="winamp-obar winamp-o10"></span><span class="winamp-obar winamp-o11"></span><span class="winamp-obar winamp-o12"></span><span class="winamp-obar winamp-o13"></span><span class="winamp-obar winamp-o14"></span><span class="winamp-obar winamp-o15"></span><span class="winamp-obar winamp-o16"></span>
+                  </div>
+                  <div class="lcd-track"><span id="winamp-track" class="lcd-track-text">*** Nothing playing ***</span></div>
                 </div>
-                <div class="lcd-text">
-                  <div class="lcd-track"><span id="winamp-track" class="lcd-track-text">Nothing playing</span></div>
-                  <div class="lcd-time"><span id="winamp-elapsed">0:00</span><span class="lcd-kbps">128 kbps</span><span id="winamp-duration">0:00</span></div>
+                <div class="lcd-row2">
+                  <span class="lcd-readout"><b id="winamp-elapsed">0:00</b>/<b id="winamp-duration">0:00</b></span>
+                  <span class="lcd-readout">192<i>kbps</i></span>
+                  <span class="lcd-readout">44<i>kHz</i></span>
+                  <span class="lcd-chan"><b class="lcd-mono">mono</b><b class="lcd-stereo">stereo</b></span>
                 </div>
+                <div class="lcd-row3">
+                  <span class="slider-label">VOL</span><div class="hbar" id="winamp-volbar"><div id="winamp-vol-fill" class="hbar-fill"></div><div id="winamp-vol-knob" class="hbar-knob"></div></div>
+                  <span class="slider-label bal-label">BAL</span><div class="hbar hbar-sm" id="winamp-balbar"><div id="winamp-bal-fill" class="hbar-fill"></div><div id="winamp-bal-knob" class="hbar-knob"></div></div>
+                  <button id="winamp-eq-toggle" class="mini-toggle" aria-label="Toggle equalizer window">EQ</button>
+                  <button id="winamp-pl-toggle" class="mini-toggle" aria-label="Toggle playlist window">PL</button>
+                </div>
+                <div class="lcd-progress"><div id="winamp-fill" class="lcd-progress-fill"></div><div id="winamp-fill-knob" class="lcd-progress-knob"></div></div>
               </div>
               <div class="main-controls">
                 <div class="transport-row">
@@ -50,11 +65,8 @@
                 </div>
                 <div class="secondary-row">
                   <button id="winamp-shuffle" class="winamp-btn winamp-shuffle" aria-label="Shuffle">SHUFFLE</button>
-                  <button id="winamp-repeat" class="winamp-btn winamp-repeat" aria-label="Repeat">REPEAT</button>
-                </div>
-                <div class="volume-row">
-                  <span class="vol-label">VOL</span>
-                  <div class="volbar"><div id="winamp-vol-fill" class="volbar-fill"></div></div>
+                  <button id="winamp-repeat" class="winamp-btn winamp-repeat" aria-label="Repeat">↻</button>
+                  <span class="clutch-icon" aria-hidden="true"></span>
                 </div>
               </div>
             </div>
@@ -66,9 +78,12 @@
         </div>
         <input type="file" id="winamp-bg-input" accept="image/*" class="hidden">
         <!-- PLAYLIST window -->
-        <div id="winamp-playlist" class="wmodule playlist" data-mod="playlist" style="left:430px;top:170px">
+        <div id="winamp-playlist" class="wmodule playlist" data-mod="playlist" style="left:310px;top:40px">
           <div class="wtitle">
+            <span class="wtitle-icon" aria-hidden="true"></span>
+            <span class="wtitle-accent" aria-hidden="true"></span>
             <span class="wtitle-text">WINAMP PLAYLIST</span>
+            <span class="wtitle-accent" aria-hidden="true"></span>
             <span class="wtitle-btns"><button class="wbtn-min" data-mod="playlist" aria-label="Shade"></button><button class="wbtn-close" data-mod="playlist" aria-label="Close window"></button></span>
           </div>
           <div class="wcontents playlist-contents">
@@ -98,14 +113,17 @@
                 <button id="winamp-pl-misc" class="pl-btn">MISC</button>
               </div>
               <span class="playlist-time">0:00:43:40</span>
-              <button id="winamp-pl-list" class="pl-btn" style="margin-left:8px">LIST</button>
+              <button id="winamp-pl-list" class="pl-btn pl-btn-list" style="margin-left:8px">LIST<br>OPTS</button>
             </div>
           </div>
         </div>
         <!-- EQUALIZER window -->
-        <div id="winamp-eq" class="wmodule eq" data-mod="eq" style="left:150px;top:370px">
+        <div id="winamp-eq" class="wmodule eq" data-mod="eq" style="left:20px;top:181px">
           <div class="wtitle">
+            <span class="wtitle-icon" aria-hidden="true"></span>
+            <span class="wtitle-accent" aria-hidden="true"></span>
             <span class="wtitle-text">WINAMP EQUALIZER</span>
+            <span class="wtitle-accent" aria-hidden="true"></span>
             <span class="wtitle-btns"><button class="wbtn-min" data-mod="eq" aria-label="Shade"></button><button class="wbtn-close" data-mod="eq" aria-label="Close window"></button></span>
           </div>
           <div class="wcontents eq-contents">
@@ -115,24 +133,28 @@
               <button id="eq-preset" class="eq-btn">PRESETS</button>
             </div>
             <div class="eq-bands" id="eq-bands">
-              <div class="eq-band"><span class="eq-val">+0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="preamp" aria-label="Preamp"><span class="eq-label">PREAMP</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="60" aria-label="60Hz"><span class="eq-label">60</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="170" aria-label="170Hz"><span class="eq-label">170</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="310" aria-label="310Hz"><span class="eq-label">310</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="600" aria-label="600Hz"><span class="eq-label">600</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="1000" aria-label="1kHz"><span class="eq-label">1K</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="3000" aria-label="3kHz"><span class="eq-label">3K</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="6000" aria-label="6kHz"><span class="eq-label">6K</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="12000" aria-label="12kHz"><span class="eq-label">12K</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="14000" aria-label="14kHz"><span class="eq-label">14K</span></div>
-              <div class="eq-band"><span class="eq-val">0</span><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="16000" aria-label="16kHz"><span class="eq-label">16K</span></div>
+              <svg class="eq-graph" id="eq-graph" viewBox="0 0 275 54" preserveAspectRatio="none" aria-hidden="true"><polyline id="eq-graph-line" points=""></polyline></svg>
+              <div class="eq-band"><span class="eq-val">+0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="preamp" aria-label="Preamp"></div><span class="eq-label">PREAMP</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="60" aria-label="60Hz"></div><span class="eq-label">60</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="170" aria-label="170Hz"></div><span class="eq-label">170</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="310" aria-label="310Hz"></div><span class="eq-label">310</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="600" aria-label="600Hz"></div><span class="eq-label">600</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="1000" aria-label="1kHz"></div><span class="eq-label">1K</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="3000" aria-label="3kHz"></div><span class="eq-label">3K</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="6000" aria-label="6kHz"></div><span class="eq-label">6K</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="12000" aria-label="12kHz"></div><span class="eq-label">12K</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="14000" aria-label="14kHz"></div><span class="eq-label">14K</span></div>
+              <div class="eq-band"><span class="eq-val">0</span><div class="eq-slider-wrap"><input type="range" min="0" max="100" value="50" class="eq-slider" data-band="16000" aria-label="16kHz"></div><span class="eq-label">16K</span></div>
             </div>
           </div>
         </div>
         <!-- MILKDROP window -->
-        <div id="winamp-milkdrop" class="wmodule milkdrop" data-mod="milkdrop" style="left:430px;top:370px">
+        <div id="winamp-milkdrop" class="wmodule milkdrop" data-mod="milkdrop" style="left:310px;top:181px">
           <div class="wtitle">
+            <span class="wtitle-icon" aria-hidden="true"></span>
+            <span class="wtitle-accent" aria-hidden="true"></span>
             <span class="wtitle-text">MILKDROP</span>
+            <span class="wtitle-accent" aria-hidden="true"></span>
             <span class="wtitle-btns"><button class="wbtn-min" data-mod="milkdrop" aria-label="Shade"></button><button class="wbtn-close" data-mod="milkdrop" aria-label="Close window"></button></span>
           </div>
           <div class="wcontents milkdrop-contents">

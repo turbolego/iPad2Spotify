@@ -14,7 +14,7 @@ module.exports = function (req, res) {
         var sid = lib.random(24);
         lib.kvSet('session:' + sid, { refresh_token: record.refresh_token }, 2592000, function (saveErr) {
           if (saveErr) return lib.json(res, 503, { error: 'Session storage failed.' });
-          lib.setCookie(res, 'spotify_session', sid, 2592000);
+          lib.setCookie(res, 'spotify_session', sid, 2592000, !lib.isLocalHost(req));
           lib.json(res, 200, { connected: true });
         });
       });

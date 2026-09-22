@@ -22,8 +22,10 @@ function cookie(req, name) {
   var raw = req.headers.cookie || '', match = raw.match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
   return match ? decodeURIComponent(match[1]) : null;
 }
-function setCookie(res, name, value, maxAge) {
-  res.setHeader('Set-Cookie', name + '=' + encodeURIComponent(value) + '; Max-Age=' + maxAge + '; Path=/; HttpOnly; Secure; SameSite=Lax');
+function setCookie(res, name, value, maxAge, secure) {
+  var attrs = name + '=' + encodeURIComponent(value) + '; Max-Age=' + maxAge + '; Path=/; HttpOnly; SameSite=Lax';
+  if (secure !== false) attrs += '; Secure';
+  res.setHeader('Set-Cookie', attrs);
 }
 function clearCookie(res, name) { setCookie(res, name, '', 0); }
 function clientIp(req) { var forwarded = req.headers['x-forwarded-for']; return (forwarded ? forwarded.split(',')[0] : (req.headers['x-real-ip'] || 'unknown')).trim(); }
@@ -39,7 +41,10 @@ function pairingCode(length) {
   return out;
 }
 function redirect(res, location) { securityHeaders(res); res.statusCode = 302; res.setHeader('Location', location); res.end(); }
-function origin(req) { return (process.env.APP_ORIGIN || ('https://' + req.headers.host)).replace(/\/$/, ''); }
+// 127.0.0.1/localhost so `vercel dev` (plain http) can build a matching redirect_uri and
+// non-Secure cookies; Spotify requires 127.0.0.1 rather than localhost for loopback testing.
+function isLocalHost(req) { return /^(127\.0\.0\.1|localhost)(:\d+)?$/i.test((req && req.headers && req.headers.host) || ''); }
+function origin(req) { if (process.env.APP_ORIGIN) return process.env.APP_ORIGIN.replace(/\/$/, ''); return (isLocalHost(req) ? 'http://' : 'https://') + req.headers.host; }
 function config(req) { return { id: process.env.SPOTIFY_CLIENT_ID, secret: process.env.SPOTIFY_CLIENT_SECRET, redirect: origin(req) + '/api/auth/callback' }; }
 function request(url, options, callback) {
   var called = false;
@@ -78,4 +83,4 @@ function requestBuffer(url, options, callback) {
   req.setTimeout(120000, function () { req.destroy(new Error('Upstream request timed out.')); });
   req.end();
 }
-module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, pairingCode: pairingCode, redirect: redirect, config: config, origin: origin, request: request, requestBuffer: requestBuffer, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
+module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, pairingCode: pairingCode, redirect: redirect, config: config, origin: origin, isLocalHost: isLocalHost, request: request, requestBuffer: requestBuffer, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
