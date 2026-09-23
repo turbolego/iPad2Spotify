@@ -11,6 +11,24 @@ Since we need to use Vercel anyways, the webapp creates a shortcode for a "badge
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/cb0c0bec-ef17-40f6-b6ff-782786272c0a" />
 
 
+## Winamp Mode
+
+The Winamp Mode feature recreates the classic Winamp 2.9 interface with four modular windows: main player, playlist editor, equalizer, and Milkdrop visualizer. The visual style, layout, and controls are based on [winamp2-js](https://github.com/rvpanoz/winamp2-js) by rvpanoz — an MIT-licensed HTML5 reimplementation of Winamp 2.9. The skin graphics (BMP sprites) are extracted from winamp2-js's built-in `base-2.91` skin. Credit to Jordan Eldredge (original winamp2-js author) and rvpanoz (repository maintainer) for the CSS and skin assets used in this mode.
+
+The Winamp skin uses:
+- Thick beveled 3D window borders (outset/inset styling)
+- Chunky metallic title bars with gradient shading
+- Recessed LCD-style display area with inset borders
+- 3D-raised transport buttons (Previous, Play, Pause, Stop, Next)
+- 10-band equalizer with vertical sliders
+- OldMilk visualizer for the Milkdrop window
+
+License notices:
+- winamp2-js is MIT licensed — https://github.com/rvpanoz/winamp2-js/blob/master/LICENSE.txt
+- Winamp is a trademark of Nullsoft/Winamp LLC.
+- The Webamp project (https://webamp.org, https://github.com/captbaritone/webamp) is an additional reference for Winamp 2.x recreation.
+
+
 ## What this project solves
 
 An iPad 2 Home Screen web app runs in fullscreen mode, but interactive Spotify OAuth may open normal Safari. This project uses a two-step flow:
@@ -23,15 +41,22 @@ An iPad 2 Home Screen web app runs in fullscreen mode, but interactive Spotify O
 
 The pairing code expires after ten minutes and is deleted after it is claimed. The Home Screen app does not need to open Spotify login again unless its session expires.
 
-## Adaptive playback updates
+## Winamp Mode
 
-The iPad starts the currently-playing request; Vercel does not independently poll Spotify on a timer. Vercel is needed because it stores the paired session and refresh token securely and performs the authorized Spotify request on behalf of the browser.
+The Winamp Mode feature recreates the classic Winamp 2.9 interface with four modular windows: main player, playlist editor, equalizer, and Milkdrop visualizer. The visual style, layout, and controls are based on [winamp2-js](https://github.com/rvpanoz/winamp2-js) by rvpanoz — an MIT-licensed HTML5 reimplementation of Winamp 2.9. The skin graphics (BMP sprites) are extracted from winamp2-js's built-in `base-2.91` skin. Credit to Jordan Eldredge (original winamp2-js author) and rvpanoz (repository maintainer) for the CSS and skin assets used in this mode.
 
-To reduce Vercel Function invocations and Redis traffic, the Home Screen app uses adaptive polling. When nothing is playing or playback is paused, it checks approximately every 60 seconds. During playback it checks approximately every 30 seconds, with a shorter check near the end of a track so the next song can be detected. When the Home Screen app is hidden or backgrounded, polling stops completely and resumes immediately when the page becomes visible again.
+The Winamp skin uses:
+- Thick beveled 3D window borders (outset/inset styling)
+- Chunky metallic title bars with gradient shading
+- Recessed LCD-style display area with inset borders
+- 3D-raised transport buttons (Previous, Play, Pause, Stop, Next)
+- 10-band equalizer with vertical sliders
+- OldMilk visualizer for the Milkdrop window
 
-The player includes a **Refresh now** button for an immediate check. When the player says **Nothing playing**, this may mean that Spotify has no active controllable playback, or simply that the first optimized background check has not occurred yet. Automatic checks can take up to 60 seconds; select **Refresh now** after starting Spotify on another device rather than waiting.
-
-During a request, the button changes to **Checking…** and displays a small loading animation. The animation uses ordinary CSS and remains compatible with Safari on iOS 9.3.6.
+License notices:
+- winamp2-js is MIT licensed — https://github.com/rvpanoz/winamp2-js/blob/master/LICENSE.txt
+- Winamp is a trademark of Nullsoft/Winamp LLC.
+- The Webamp project (https://webamp.org, https://github.com/captbaritone/webamp) is an additional reference for Winamp 2.x recreation.
 
 ## Fork and deploy your own copy
 
@@ -193,9 +218,9 @@ After pairing the app and observing at least one playing track, select **Create 
 
 Copy that Markdown into a GitHub profile `README.md`. The SVG displays the last track observed by the paired app, including album artwork, song title, and artist. For each badge request, the server uses the stored track ID with Spotify’s `GET /v1/tracks/{id}` endpoint and selects `album.images[0].url`, the highest-resolution artwork returned by Spotify. It then downloads and embeds the artwork inside the SVG so GitHub does not need to load a remote image nested inside the badge. The badge is a public image URL: anyone who can see the README source can request it.
 
-The badge lifecycle is: the paired app checks `/api/spotify/currently-playing` at its adaptive interval; the server refreshes the Spotify access token from the server-side session; the latest track ID and basic metadata are saved in Redis; **Create GitHub README Badge** creates a random badge key mapped to that session; and GitHub requests `/api/badge/<key>.svg` when rendering the profile README. The badge endpoint looks up the stored track ID, asks Spotify for the current track object and album image, embeds the image, and returns an SVG. The badge is cached for a short period, so GitHub may show an older song for several minutes.
+The badge lifecycle is: the paired app checks `/api/spotify/currently-playing` on an adaptive schedule; the server refreshes the Spotify access token from the server-side session; the latest track ID and basic metadata are saved in Redis; **Create GitHub README Badge** creates a random badge key mapped to that session; and GitHub requests `/api/badge/<key>.svg` when rendering the profile README. The badge endpoint looks up the stored track ID, asks Spotify for the current track object and album image, embeds the image, and returns an SVG. The badge is cached for a short period, so GitHub may show an older song for several minutes.
 
-The badge is updated when the app successfully checks Spotify. It does not independently monitor Spotify while the iPad app is closed. GitHub and image proxies may cache the image, so changes can appear with a delay of up to several minutes.
+The badge is updated when the app successfully checks Spotify. While playing, checks normally occur about every 15 seconds, with a shorter check near the end of a track; when idle or paused, checks occur about every 30 seconds. It does not independently monitor Spotify while the iPad app is closed. GitHub and image proxies may cache the image, so changes can appear with a delay of up to several minutes.
 
 The badge key is a viewing key, not a playback-control credential. It does not expose Spotify access tokens, refresh tokens, Redis credentials, or the private session cookie. The badge record expires after one year; create a new badge from the app if it expires.
 
@@ -211,19 +236,27 @@ The dashboard provides:
 - previous track,
 - next track,
 - a playback timeline showing elapsed and total track time,
-- adaptive currently-playing checks, normally every 30–60 seconds,
-- a **Refresh now** button for an immediate currently-playing check,
-- a loading indicator while the app communicates with Vercel,
+- adaptive currently-playing checks, normally every 15–30 seconds,
 - a custom SVG last-played card for GitHub profile READMEs,
 - Minimalist View with centered album artwork and track text,
 - Search Artist to start artist radio playback for any artist,
-- Search Playlist to find Spotify playlists and start a selected playlist.
+- Search Playlist to find Spotify playlists and start a selected playlist,
+- Winamp Mode, a retro Winamp-style interface for the same dashboard.
 
 The regular player also has a **Minimalist View** button. Minimalist View centers the album cover on the screen and places the artist and song name directly below it, hiding the other controls and interface elements. Tap the album cover to open the **Exit minimalist view?** confirmation. Select **yes** to return to the regular player or **no** to continue viewing the minimalist display.
 
 The **Search Artist** button opens a search dialog. Enter an artist name and select **Search** to see matching Spotify artists, then select an artist to start playback of that artist's catalog (Spotify's equivalent of "artist radio") on the currently active device.
 
-The same dialog includes **Search Playlist**. Enter a playlist name, select **Search**, and choose a result to start that playlist on the currently active device. Playlist search is handled by a server-side Vercel Function so the Spotify client secret is never sent to the iPad. It intentionally does not use the session KV/Redis helper and uses bounded Spotify requests with market fallbacks to reduce dependency on session storage.
+The **Winamp Mode** button swaps the dashboard for a retro Winamp-style skin that resembles the classic Winamp 2 player (and the Winamp-inspired Spotiamp client). It runs entirely in the same ES5/XMLHttpRequest frontend — it is a CSS/JS skin of the existing dashboard, not the Webamp browser bundle — so it keeps working on the iPad 2 running Safari on iOS 9.3.6.
+
+The mode is made of four free-floating **modules** whose layout and look mirror Webamp's windows:
+
+- **Main window** — the player: current track in a scrolling marquee, album art, a bouncing-bar "oscilloscope" that animates while playing, elapsed/total time, a seekbar, and previous/play/stop/pause/next controls plus a volume bar. All playback buttons drive Spotify through the same allowlisted command API as the regular player.
+- **Playlist Editor** — a local observed-track list rendered as green-on-black rows (Webamp's playlist palette); it is not Spotify's queue, and the currently playing row is highlighted.
+- **Equalizer** — the 10 Winamp EQ bands (60Hz–16kHz) plus preamp as draggable vertical sliders with live dB readout, and **ON/AUTO** toggles. Equalizer bands are a visual control (a canvas fade), not actual audio DSP, since the iPad 2 exposes no Web Audio EQ.
+- **Milkdrop** — a canvas visualizer that draws reactive waveform bars while music plays. It is a CSS/canvas stand-in (a 2D oscilloscope gradient), because Milkdrop's real renderer needs WebGL/Butterchurn, which the iPad 2 GPU does not provide.
+
+Every module has a title bar with a **shade** (▬) and **close** (×) control, and every module can be **dragged** around the screen, with proximity-based edge alignment: when a dragged window is within 15px of a neighboring module edge, the edges align. Windows are otherwise only constrained from being fully dragged off-screen. Choose **Exit Winamp** to return to the regular dashboard.
 
 Playback controls generally require a Spotify Premium account and an active controllable Spotify device. The dashboard does not play audio itself.
 
@@ -236,7 +269,6 @@ Playback controls generally require a Spotify Premium account and an active cont
 - `/api/spotify/currently-playing` — returns playback state and stores the latest observed track
 - `/api/spotify/command` — allowlisted play, pause, next, previous, and play_artist (artist radio) commands
 - `/api/spotify/search-artist` — searches Spotify for artists by name
-- `/api/spotify/search-playlist` — searches Spotify for playlists without using the session KV/Redis helper
 - `/api/badge/create` — creates an authenticated public badge key
 - `/api/badge/<key>.svg` — returns the public GitHub-compatible SVG card
 
@@ -264,7 +296,7 @@ It uses ES5 JavaScript, `XMLHttpRequest`, old Safari-safe markup, and iOS Home S
 
 Vercel cannot force interactive Spotify login to remain inside an iOS 9 standalone Home Screen window. The pairing flow is intentional: login takes place in normal Safari or another browser, and the authenticated session is then transferred to the fullscreen app using a one-time code.
 
-The badge represents the last track observed while the paired app was checking. It is not a continuous Spotify listening-history monitor. Adaptive polling and the hidden-page pause can delay visible updates; use **Refresh now** when an immediate check is needed. GitHub image caching can delay badge updates further.
+The badge represents the last track observed while the paired app was polling. It is not a continuous Spotify listening-history monitor. GitHub image caching can delay visible updates.
 
 GitHub Pages alone cannot safely store the Spotify Client Secret or maintain the shared pairing/session state required by this flow.
 
