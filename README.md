@@ -41,23 +41,6 @@ An iPad 2 Home Screen web app runs in fullscreen mode, but interactive Spotify O
 
 The pairing code expires after ten minutes and is deleted after it is claimed. The Home Screen app does not need to open Spotify login again unless its session expires.
 
-## Winamp Mode
-
-The Winamp Mode feature recreates the classic Winamp 2.9 interface with four modular windows: main player, playlist editor, equalizer, and Milkdrop visualizer. The visual style, layout, and controls are based on [winamp2-js](https://github.com/rvpanoz/winamp2-js) by rvpanoz — an MIT-licensed HTML5 reimplementation of Winamp 2.9. The skin graphics (BMP sprites) are extracted from winamp2-js's built-in `base-2.91` skin. Credit to Jordan Eldredge (original winamp2-js author) and rvpanoz (repository maintainer) for the CSS and skin assets used in this mode.
-
-The Winamp skin uses:
-- Thick beveled 3D window borders (outset/inset styling)
-- Chunky metallic title bars with gradient shading
-- Recessed LCD-style display area with inset borders
-- 3D-raised transport buttons (Previous, Play, Pause, Stop, Next)
-- 10-band equalizer with vertical sliders
-- OldMilk visualizer for the Milkdrop window
-
-License notices:
-- winamp2-js is MIT licensed — https://github.com/rvpanoz/winamp2-js/blob/master/LICENSE.txt
-- Winamp is a trademark of Nullsoft/Winamp LLC.
-- The Webamp project (https://webamp.org, https://github.com/captbaritone/webamp) is an additional reference for Winamp 2.x recreation.
-
 ## Fork and deploy your own copy
 
 Alternative 1: Use this button:
