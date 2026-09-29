@@ -180,7 +180,7 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 }
 
 /* Keep the main window's controls inside the classic 275x116 frame. */
-.main-contents{height:100px;padding:1px;overflow:hidden}
+.main-contents{width:275px;height:116px;padding:1px;overflow:hidden;position:relative}
 .main-lcd{margin:2px;padding:1px}
 .lcd-row1{height:22px}
 .lcd-vis{width:58px;height:18px;padding:1px}
@@ -188,9 +188,9 @@ footer{position:absolute;left:48px;right:48px;bottom:18px;text-align:center;colo
 .lcd-row3{margin-top:1px}
 .hbar{height:6px}
 .lcd-progress{height:3px;margin-top:2px}
-.main-controls{margin-top:1px}
-.transport-row{margin-bottom:1px}
-.transport-row .winamp-btn{height:17px}
+.main-controls{margin-top:1px;position:relative}
+.transport-row{margin-bottom:1px;position:absolute;bottom:0;left:0;width:100%;height:18px;display:flex;justify-content:flex-start;align-items:center;padding-left:2px;background:#1a2320;border-top:1px solid #39443c;z-index:10}
+.transport-row .winamp-btn{height:18px;margin-right:1px}
 .secondary-row .winamp-btn{height:17px}
 .clutch-icon{width:15px;height:15px}
 
@@ -312,51 +312,73 @@ body.winamp-playing .lcd-stereo{color:#8be08b}
 }
 
 .main-controls{margin-top:2px}
+/* Transport buttons — absolutely positioned inside main window frame */
 .transport-row{
-  display:-webkit-flex;display:flex;
-  -webkit-justify-content:flex-start;justify-content:flex-start;
-  margin-bottom:2px;
+  position:absolute;
+  bottom:0;
+  left:0;
+  width:100%;
+  height:18px;
+  display:flex;
+  justify-content:flex-start;
+  align-items:center;
+  padding-left:2px;
+  background:#1a2320;
+  border-top:1px solid #39443c;
+  z-index:10;
+}
+.transport-row .winamp-btn{
+  margin-right:1px;
+}
+/* Secondary row (shuffle/repeat) — above transport row */
+.secondary-row{
+  position:absolute;
+  bottom:18px;
+  left:0;
+  width:100%;
+  height:18px;
+  display:flex;
+  justify-content:flex-start;
+  align-items:center;
+  padding-left:2px;
+  background:#1a2320;
+  z-index:10;
+}
+.secondary-row .winamp-btn{
+  margin-right:1px;
 }
 .winamp-btn{
-  border:2px outset #9ca3a5;
-  border-radius:2px;
+  position:relative;
+  border:none;
   width:23px;height:18px;
   font-size:0;line-height:1;
-  cursor:pointer;color:transparent;
-  background:#c6cbc6;
-  background:-webkit-linear-gradient(#d6d9d9,#808383);
-  background:linear-gradient(#d6d9d9,#808383);
-  padding:0 2px;
+  cursor:pointer;
+  background-size:cover;
+  background-repeat:no-repeat;
+  padding:0;
+  overflow:hidden;
+  z-index:11;
 }
-.winamp-btn:before{font-size:11px;font-weight:bold;line-height:12px;color:#000}
-.winamp-prev:before{content:"<<";font-size:9px}
-.winamp-play:before{content:"▶"}
-.winamp-pause:before{content:"||";font-size:10px}
-.winamp-stop:before{content:"■";font-size:9px}
-.winamp-next:before{content:"▶▶";font-size:9px}
-.winamp-eject:before{content:"▲";font-size:10px}
-.winamp-btn:active{
-  background:#5a615a;
-  border-style:inset;
-}
-.winamp-play{
-  background:#9be39b;
-  background:-webkit-linear-gradient(#9be39b,#3f8a3f);
-  background:linear-gradient(#9be39b,#3f8a3f);
-  color:#06240a;
-}
-.winamp-stop{
-  background:#e09b9b;
-  background:-webkit-linear-gradient(#e09b9b,#8f3f3f);
-  background:linear-gradient(#e09b9b,#8f3f3f);
-  color:#2a0606;
-}
-.winamp-pause{
-  background:#e0d09b;
-  background:-webkit-linear-gradient(#e0d09b,#8f7f3f);
-  background:linear-gradient(#e0d09b,#8f7f3f);
-  color:#2a2006;
-}
+/* Button sprites from CBUTTONS.BMP */
+.winamp-prev{background-image:url('winamp-assets/prev-normal.png')}
+.winamp-play{background-image:url('winamp-assets/play-normal.png')}
+.winamp-pause{background-image:url('winamp-assets/pause-normal.png')}
+.winamp-stop{background-image:url('winamp-assets/stop-normal.png')}
+.winamp-next{background-image:url('winamp-assets/next-normal.png')}
+.winamp-eject{background-image:url('winamp-assets/eject-normal.png')}
+/* Active/pressed states */
+.winamp-prev:active,
+.winamp-prev.active{background-image:url('winamp-assets/prev-pressed.png') !important}
+.winamp-play:active,
+.winamp-play.active{background-image:url('winamp-assets/play-pressed.png') !important}
+.winamp-pause:active,
+.winamp-pause.active{background-image:url('winamp-assets/pause-pressed.png') !important}
+.winamp-stop:active,
+.winamp-stop.active{background-image:url('winamp-assets/stop-pressed.png') !important}
+.winamp-next:active,
+.winamp-next.active{background-image:url('winamp-assets/next-pressed.png') !important}
+.winamp-eject:active,
+.winamp-eject.active{background-image:url('winamp-assets/eject-pressed.png') !important}
 
 .secondary-row{
   display:-webkit-flex;display:flex;
@@ -697,7 +719,7 @@ body.winamp-playing .lcd-stereo{color:#8be08b}
 }
 
 /* Final classic-main sizing overrides: the 275x116 player must contain every control. */
-.main-contents{height:100px;padding:1px;overflow:hidden}
+.main-contents{width:275px;height:116px;padding:1px;overflow:hidden;position:relative}
 .main-contents .main-lcd{margin:2px;padding:1px}
 .main-contents .lcd-row1{height:22px}
 .main-contents .lcd-vis{width:58px;height:18px;padding:1px}

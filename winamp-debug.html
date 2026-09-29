@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Winamp Mode Debug - iPad2Spotify PR #6</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="vendor/winamp2-js/css/ipad2spotify-winamp.css">
+  <style>
+    body { background: #3a6ea5 !important; margin: 0; padding: 20px; }
+    .winamp-player { display: block !important; visibility: visible !important; }
+    /* Debug: show all modules for screenshot */
+    .wmodule { position: absolute !important; }
+    /* Make exit button visible */
+    .winamp-exit-btn { position: fixed !important; bottom: 20px; right: 20px; opacity: 1 !important; pointer-events: auto !important; background: rgba(182,214,75,0.9); color: #101211 !important; border: none !important; padding: 8px 16px !important; font-size: 12px !important; cursor: pointer !important; z-index: 1000 !important; }
+    .winamp-exit-btn:hover { background: rgba(182,214,75,1) !important; }
+  </style>
+</head>
+<body class="winamp-active">
+  <!-- Winamp mode debug: All modules visible -->
+  <section id="winamp-player" class="winamp" aria-label="Winamp mode player">
+    <div id="winamp-mover" class="winamp-mover">
+      <!-- MAIN window: player -->
+      <div id="winamp-main" class="wmodule main" data-mod="main" style="left:20px;top:40px">
+        <div class="wtitle">
+          <span class="wtitle-icon" aria-hidden="true"></span>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-text">WINAMP</span>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-btns"><button class="wbtn-min" data-mod="main" aria-label="Shade"></button><button class="wbtn-close" data-mod="main" aria-label="Close window"></button></span>
+        </div>
+        <div class="wcontents main-contents">
+          <div class="main-lcd">
+            <div class="lcd-row1">
+              <div class="lcd-vis" id="winamp-osc" aria-hidden="true">
+                <span class="winamp-obar winamp-o1"></span><span class="winamp-obar winamp-o2"></span><span class="winamp-obar winamp-o3"></span><span class="winamp-obar winamp-o4"></span><span class="winamp-obar winamp-o5"></span><span class="winamp-obar winamp-o6"></span><span class="winamp-obar winamp-o7"></span><span class="winamp-obar winamp-o8"></span><span class="winamp-obar winamp-o9"></span><span class="winamp-obar winamp-o10"></span><span class="winamp-obar winamp-o11"></span><span class="winamp-obar winamp-o12"></span><span class="winamp-obar winamp-o13"></span><span class="winamp-obar winamp-o14"></span><span class="winamp-obar winamp-o15"></span><span class="winamp-obar winamp-o16"></span>
+              </div>
+              <div class="lcd-track"><span id="winamp-track" class="lcd-track-text">*** Nothing playing ***</span></div>
+            </div>
+            <div class="lcd-row2">
+              <span id="winamp-elapsed" class="lcd-elapsed">0:00</span>
+              <span class="lcd-hbar"><span class="hbar"></span></span>
+              <span id="winamp-duration" class="lcd-duration">0:00</span>
+            </div>
+            <div class="lcd-row3">
+              <span class="lcd-stereo">STEREO</span>
+              <span class="lcd-vbr">VBR</span>
+              <span class="lcd-kbps">128 kbps</span>
+              <span class="lcd-khz">44 kHz</span>
+            </div>
+          </div>
+          <div class="main-controls">
+            <div class="transport-row">
+              <button id="winamp-prev" class="winamp-btn" aria-label="Previous track">|◀◀</button>
+              <button id="winamp-play" class="winamp-btn winamp-play" aria-label="Play">▶</button>
+              <button id="winamp-pause" class="winamp-btn winamp-pause" aria-label="Pause">❚❚</button>
+              <button id="winamp-stop" class="winamp-btn winamp-stop" aria-label="Stop">■</button>
+              <button id="winamp-next" class="winamp-btn winamp-next" aria-label="Next track">▶▶|</button>
+              <button id="winamp-eject" class="winamp-btn winamp-eject" aria-label="Eject">⏏</button>
+            </div>
+            <div class="secondary-row">
+              <button id="winamp-shuffle" class="winamp-btn winamp-shuffle" aria-label="Shuffle">SHUFFLE</button>
+              <button id="winamp-repeat" class="winamp-btn winamp-repeat" aria-label="Repeat">↻</button>
+              <button id="winamp-random" class="winamp-btn winamp-random" aria-label="Random">RND</button>
+              <button id="winamp-playlist-editor" class="winamp-btn winamp-playlist-editor" aria-label="Playlist editor">PLEDIT</button>
+              <button id="winamp-eq-toggle" class="mini-toggle" aria-label="Toggle equalizer window">EQ</button>
+              <button id="winamp-vis-toggle" class="mini-toggle" aria-label="Toggle visualization">VIS</button>
+            </div>
+          </div>
+          <div class="clutch">
+            <button class="clutch-btn" aria-label="Options"><span class="clutch-icon" aria-hidden="true"></span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Playlist window -->
+      <div id="winamp-playlist" class="wmodule playlist" data-mod="playlist" style="left:310px;top:40px">
+        <div class="wtitle">
+          <span class="wtitle-icon" aria-hidden="true"></span>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-text">WINAMP PLAYLIST</span>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-btns"><button class="wbtn-min" data-mod="playlist" aria-label="Shade"></button><button class="wbtn-close" data-mod="playlist" aria-label="Close window"></button></span>
+        </div>
+        <div class="wcontents playlist-contents">
+          <div class="playlist-list" id="winamp-playlist-list">
+            <div class="playlist-row playlist-current"><span class="pl-num">1.</span> DJ Mike Llama - Test Track 1</div>
+            <div class="playlist-row"><span class="pl-num">2.</span> Another Artist - Test Track 2</div>
+            <div class="playlist-row"><span class="pl-num">3.</span> Third Artist - Test Track 3</div>
+          </div>
+          <div class="playlist-footer">
+            <div class="playlist-toolbar">
+              <button class="pl-btn pl-btn-add" aria-label="Add">ADD</button>
+              <button class="pl-btn pl-btn-remove" aria-label="Remove">REM</button>
+              <button class="pl-btn pl-btn-select" aria-label="Select all">SEL</button>
+            </div>
+            <div class="playlist-length"><span id="pl-len">0:00</span> / <span id="pl-total">3 tracks</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Equalizer window -->
+      <div id="winamp-eq" class="wmodule eq" data-mod="eq" style="left:20px;top:181px">
+        <div class="wtitle">
+          <span class="wtitle-icon" aria-hidden="true"></span>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-text">EQUALIZER</span>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-btns"><button class="wbtn-min" data-mod="eq" aria-label="Shade"></button><button class="wbtn-close" data-mod="eq" aria-label="Close window"></button></span>
+        </div>
+        <div class="wcontents eq-contents">
+          <div class="eq-main">
+            <div class="eq-sliders">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="0" aria-label="100Hz">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="1" aria-label="200Hz">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="2" aria-label="400Hz">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="3" aria-label="800Hz">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="4" aria-label="1600Hz">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="5" aria-label="3200Hz">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="6" aria-label="6400Hz">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="7" aria-label="12800Hz">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="8" aria-label="25600Hz">
+              <input type="range" class="eq-slider" min="-12" max="12" value="0" data-band="9" aria-label="32000Hz">
+            </div>
+            <div class="eq-presets">
+              <select id="eq-preset" aria-label="EQ Presets">
+                <option>Default</option>
+                <option>Rock</option>
+                <option>Pop</option>
+                <option>Classic Rock</option>
+                <option>Jazz</option>
+                <option>Blues</option>
+              </select>
+            </div>
+          </div>
+          <div class="eq-extra">
+            <div class="eq-volume">
+              <label>VOL</label>
+              <input type="range" class="eq-slider-volume" min="0" max="100" value="80" aria-label="Volume">
+            </div>
+            <div class="eq-balance">
+              <label>BAL</label>
+              <input type="range" class="eq-slider-balance" min="-100" max="100" value="0" aria-label="Balance">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Milkdrop window -->
+      <div id="winamp-milkdrop" class="wmodule milkdrop" data-mod="milkdrop" style="left:310px;top:181px">
+        <div class="wtitle">
+          <span class="wtitle-icon" aria-hidden="true"></span>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-text">MILKDROP VISUALIZER</span>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-btns"><button class="wbtn-min" data-mod="milkdrop" aria-label="Shade"></button><button class="wbtn-close" data-mod="milkdrop" aria-label="Close window"></button></span>
+        </div>
+        <div class="wcontents milkdrop-contents">
+          <canvas id="milkdrop-canvas" width="275" height="102" aria-label="Milkdrop visualizer"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exit button -->
+    <button id="winamp-exit" class="winamp-exit-btn" aria-label="Exit Winamp mode">
+      Exit Winamp Mode
+    </button>
+  </section>
+</body>
+</html>
