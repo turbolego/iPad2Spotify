@@ -118,6 +118,138 @@ function request(method,url,body,done){if(url.charAt(0)==='/')url=location.proto
   });
   // Apply background on load
   applyBackgroundImage();
+  
+  // ---- Audio file handling for Winamp playlist ----
+  var playlistAudioFiles = [];
+  function addAudioFiles(files) {
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i];
+      if (file.type.startsWith('audio/')) {
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          var audioData = {
+            name: file.name,
+            data: ev.target.result,
+            type: file.type,
+            size: file.size,
+            url: ev.target.result
+          };
+          playlistAudioFiles.push(audioData);
+          updatePlaylistDisplay();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  }
+  
+  // ---- Playlist display and management ----
+  function updatePlaylistDisplay() {
+    var playlistEl = id('winamp-playlist-list');
+    if (!playlistEl) return;
+    
+    playlistEl.innerHTML = '';
+    for (var i = 0; i < playlistAudioFiles.length; i++) {
+      var audio = playlistAudioFiles[i];
+      var row = document.createElement('div');
+      row.className = 'playlist-row';
+      row.innerHTML = 
+        '<span class=\"pl-num\">' + (i + 1) + '. ' + audio.name + '</span>' +
+        '<button class=\"pl-exit\" onclick=\"removeAudioFile(' + i + ')\">✖</button>';
+      playlistEl.appendChild(row);
+    }
+    
+    // Update playlist counter
+    var timeEl = id('playlist-time');
+    if (timeEl) {
+      var totalMinutes = Math.floor(playlistAudioFiles.length * 3);
+      var hours = Math.floor(totalMinutes / 60);
+      var minutes = totalMinutes % 60;
+      var timeStr = (hours > 0 ? hours + ':' : '') + (hours > 0 && minutes < 10 ? '0' : '') + minutes + ':00';
+      timeEl.textContent = timeStr;
+    }
+  }
+  
+  function removeAudioFile(index) {
+    playlistAudioFiles.splice(index, 1);
+    updatePlaylistDisplay();
+  }
+  
+  // ---- Drag and drop for audio files ----
+  var dragOverlay = null;
+  function createDragOverlay() {
+    if (!dragOverlay) {
+      dragOverlay = document.createElement('div');
+      dragOverlay.className = 'drag-overlay';
+      dragOverlay.textContent = 'Drop audio files here';
+      document.body.appendChild(dragOverlay);
+    }
+  }
+  
+  function hideDragOverlay() {
+    if (dragOverlay) {
+      dragOverlay.style.display = 'none';
+    }
+  }
+  
+  // Add drag and drop listeners to winamp player section
+  var winampPlayer = id('winamp-player');
+  if (winampPlayer) {
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(function(event) {
+      winampPlayer.addEventListener(event, function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
+    });
+    
+    winampPlayer.addEventListener('dragenter', function(e) {
+      createDragOverlay();
+      dragOverlay.style.display = 'flex';
+    }, false);
+    
+    winampPlayer.addEventListener('dragover', function(e) {
+      dragOverlay.style.display = 'flex';
+    }, false);
+    
+    winampPlayer.addEventListener('dragleave', function(e) {
+      hideDragOverlay();
+    }, false);
+    
+    winampPlayer.addEventListener('drop', function(e) {
+      hideDragOverlay();
+      var files = e.dataTransfer.files;
+      addAudioFiles(files);
+    }, false);
+  }
+  
+  // Initialize drag overlay
+  createDragOverlay();
+  hideDragOverlay();
+  
+  // ---- File input integration ----
+  var fileInput = id('winamp-pl-file-input');
+  if (fileInput) {
+    fileInput.addEventListener('change', function(e) {
+      addAudioFiles(e.target.files);
+      e.target.value = '';
+    });
+  }
+  
+  // Add file input button to playlist footer
+  var playlistList = id('winamp-playlist-list');
+  if (playlistList) {
+    var plFooter = playlistList.parentNode;
+    if (plFooter && plFooter.className === 'playlist-footer') {
+      var fileInputBtn = document.createElement('button');
+      fileInputBtn.id = 'winamp-pl-file-btn';
+      fileInputBtn.className = 'pl-btn';
+      fileInputBtn.textContent = 'FILES';
+      fileInputBtn.onclick = function() {
+        fileInput.click();
+      };
+      plFooter.insertBefore(fileInputBtn, plFooter.firstChild);
+    }
+  }
+  
   // ---- Movable Webamp-style module windows (main/playlist/equalizer/milkdrop) ----
   var SNAP = 15;
   var WIN = { main: 275, playlist: 275, eq: 275, milkdrop: 275 };
