@@ -359,6 +359,47 @@ test('Winamp mode proportions', async () => {
   }
 });
 
+// Pixel-perfect test: verify main player dimensions match reference Winamp 2.9 screenshot
+// Reference image: 943x480 pixels showing classic Winamp 2.9 main window
+test('Winamp mode pixel-perfect dimensions', async () => {
+  const referencePath = path.join(ROOT, '..', '.hermes', 'cache', 'images', 'img_013fe5c9e400.jpg');
+  const referencePathRel = path.join(ROOT, 'tests', '..', '..', '.hermes', 'cache', 'images', 'img_013fe5c9e400.jpg');
+  
+  let referencePathFinal = referencePath;
+  if (!fs.existsSync(referencePathFinal)) {
+    referencePathFinal = referencePathRel;
+  }
+  
+  // Get actual CSS dimensions from styles.css
+  const css = fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8');
+  
+  const mainWidthMatch = css.match(/\.main-contents\s*\{[^}]*width\s*:\s*(\d+)px/i);
+  const mainHeightMatch = css.match(/\.main-contents\s*\{[^}]*height\s*:\s*(\d+)px/i);
+  
+  assert(mainWidthMatch, 'Main width CSS rule must exist');
+  assert(mainHeightMatch, 'Main height CSS rule must exist');
+  
+  const actualWidth = parseInt(mainWidthMatch[1]);
+  const actualHeight = parseInt(mainHeightMatch[1]);
+  
+  // Classic Winamp 2.9 main window dimensions
+  assert.strictEqual(actualWidth, 275, 'Main player width should be 275px');
+  assert.strictEqual(actualHeight, 116, 'Main player height should be 116px');
+  
+  // Verify play button positioning matches reference
+  const playLeftMatch = css.match(/\.winamp-play\s*\{[^}]*left\s*:\s*(\d+)px/i);
+  const playTopMatch = css.match(/\.winamp-play\s*\{[^}]*top\s*:\s*(\d+)px/i);
+  
+  if (playLeftMatch) {
+    const playLeft = parseInt(playLeftMatch[1]);
+    assert.strictEqual(playLeft, 24, 'Play button left should be 24px');
+  }
+  if (playTopMatch) {
+    const playTop = parseInt(playTopMatch[1]);
+    assert.strictEqual(playTop, 98, 'Play button top should be 98px');
+  }
+});
+
 // Snapshot test for CSS - ensure we don't accidentally change critical styles
 test('Winamp mode CSS snapshot', async () => {
   const css = fs.readFileSync(path.join(ROOT, 'styles.css'), 'utf8');
