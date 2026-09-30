@@ -3,16 +3,18 @@
  * Targets iPad 2 / iOS 9.3.5 Safari (WebGL 1, ES5). Dep-free.
  * Vendored from @turbolego/oldmilk@0.1.2 (https://www.npmjs.com/package/@turbolego/oldmilk)
  *
- * Usage:
- *   1. Include <script src="src/oldmilk.js"></script>
- *   2. Either:
- *      a) OldMilk auto-detects <canvas id="milkdrop-canvas"> or <canvas id="viz">
- *      b) Call OldMilk.createVisualizer(canvas, {width, height}) manually
+ * Local changes for iPad2Spotify: no auto-initialisation or internal animation loop (the host
+ * owns the single render loop), render(timeSec) accepts an explicit time, and setBands() lets the
+ * host supply band levels (iPad2Spotify has no access to Spotify audio, so it feeds a
+ * deterministic spectrum derived from playback state).
  *
  * API:
- *   viz.setAudioSource(node)     // WebAudio node with getByteFrequencyData, or null -> synthetic
+ *   var viz = OldMilk.createVisualizer(canvas, {width, height});
+ *   viz.setAudioSource(node)     // WebAudio node with getByteFrequencyData, or null
+ *   viz.setBands(levels)         // array of 0..1 band levels (low -> high); overrides audio
  *   viz.loadPreset(name)
- *   viz.render()                 // draws one frame; call from rAF loop
+ *   viz.render(timeSec)          // draws one frame; timeSec optional (defaults to +16 ms)
+ *   viz.clear()                  // paints the canvas black
  *   viz.resize(w, h)
  *   viz.isWebGL() -> bool
  */
@@ -37,15 +39,6 @@
     'Resonant Plasma':            { mode: 5, hue: 0.90, wave: 0.35, bars: 0.10, speed: 0.50, zoom: 1.005, rot: -0.012, warp: 0.30, decay: 0.95 },
     'Spiral Vortex':              { mode: 6, hue: 0.68, wave: 0.30, bars: 0.20, speed: 0.80, zoom: 0.982, rot: 0.022,  warp: 0.55, decay: 0.94 }
   };
-
-  function findCanvas() {
-    // Try common IDs first (for iPad2Spotify compatibility)
-    var c = document.getElementById('milkdrop-canvas');
-    if (!c) c = document.getElementById('viz');
-    // Fallback: first canvas in document
-    if (!c) c = document.createElement('canvas');
-    return c;
-  }
 
   var VERT_SRC =
     'attribute vec2 aPos;\n' +
@@ -91,17 +84,15 @@
   function createVisualizer(canvasOrId, opts) {
     opts = opts || {};
     var width = opts.width || 275, height = opts.height || 116;
-    if (typeof canvasOrId === 'string') canvasOrId = findCanvas();
-    var canvas = canvasOrId;
-    // Prevent the standalone auto-init below from also attaching to this canvas and fighting over frames.
-    canvas.setAttribute('data-oldmilk-inited', '1');
+    var canvas = typeof canvasOrId === 'string' ? document.getElementById(canvasOrId) : canvasOrId;
+    canvas.width = width; canvas.height = height;
     var gl = null, mainProg = null, blitProg = null, useGL = false;
     var mUniforms = {}, bUniforms = {}, quadBuf = null;
     var fbos = [null, null], fboTex = [null, null], curFbo = 0;
     var bandArr = new Float32Array(BINS);
     var glBandArr = new Float32Array(GL_BINS);
     var params = PRESETS['Prismatic Hourglass Tunnel'];
-    var audio = null, g2d = null, t = 0;
+    var audio = null, hostBands = null, g2d = null, t = 0;
 
     function compileProgram(fragSrc) {
       var vs = gl.createShader(gl.VERTEX_SHADER);
@@ -189,7 +180,12 @@
     })();
 
     function updateBands() {
-      if (audio && typeof audio.getByteFrequencyData === 'function') {
+      if (hostBands) {
+        for (var h = 0; h < BINS; h++) {
+          var v0 = hostBands[Math.floor((h / BINS) * hostBands.length)];
+          bandArr[h] = v0 > 1 ? 1 : (v0 < 0 || !v0 ? 0 : v0);
+        }
+      } else if (audio && typeof audio.getByteFrequencyData === 'function') {
         var u8 = new Uint8Array(audio.frequencyBinCount || 256);
         audio.getByteFrequencyData(u8);
         for (var i = 0; i < BINS; i++) {
@@ -203,8 +199,8 @@
       }
     }
 
-    function render() {
-      t += 0.016;
+    function render(timeSec) {
+      if (typeof timeSec === 'number') t = timeSec; else t += 0.016;
       updateBands();
       if (useGL) {
         var bin = 0;
@@ -268,74 +264,30 @@
       if (params.bars > 0) { var nb=16,bw=W/nb; for(var b=0;b<nb;b++){var v=bandArr[Math.floor(b/nb*BINS)]*params.bars;g2d.fillStyle='hsla('+(hue+treb*90+b*8)+',90%,65%,.55)';g2d.fillRect(b*bw,H-v*H*.55,bw-1,v*H*.55);g2d.fillRect(W-(b+1)*bw,H-v*H*.55,bw-1,v*H*.55);}}
     }
 
-    // Store canvas reference for external clearing
-    var vis = {
+    function clear() {
+      if (useGL) {
+        for (var i = 0; i < 2; i++) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, fbos[i]);
+          gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+        return;
+      }
+      if (!g2d) { try { g2d = canvas.getContext('2d'); } catch (e) { g2d = null; } }
+      if (g2d) { g2d.fillStyle = '#000'; g2d.fillRect(0, 0, canvas.width, canvas.height); }
+    }
+
+    return {
       setAudioSource: function (src) { audio = src; },
+      setBands: function (levels) { hostBands = levels && levels.length ? levels : null; },
       loadPreset: function (name) { if (PRESETS[name]) { params = PRESETS[name]; return true; } return false; },
       presetNames: function () { return Object.keys(PRESETS); },
       render: render,
+      clear: clear,
       resize: function (w, h) { width = w; height = h; canvas.width = w; canvas.height = h; if (useGL) initFBOs(); },
       isWebGL: function () { return useGL; },
-      getBands: function () { return bandArr; },
-      _canvas: canvas
-    };
-    return vis;
-  }
-
-  // Auto-init if script loaded standalone. iPad2Spotify pauses/resumes the shared rAF loop
-  // via window.__oldmilkStopLoop / window.__oldmilkStartLoop while Winamp mode is hidden or paused.
-  if (typeof window !== 'undefined') {
-    var autoLoopHandle = null;
-    function clearCanvasBlack() {
-      if (!window.oldmilkViz || !window.oldmilkViz._canvas) return;
-      try {
-        var c = window.oldmilkViz._canvas;
-        var gl = c.getContext('webgl') || c.getContext('experimental-webgl');
-        if (gl) {
-          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-          gl.clearColor(0, 0, 0, 1);
-          gl.clear(gl.COLOR_BUFFER_BIT);
-        }
-      } catch (e) {}
-    }
-    function startVisualizer() {
-      var canvas = findCanvas();
-      if (canvas && !canvas.getAttribute('data-oldmilk-inited')) {
-        canvas.width = 275; canvas.height = 116;
-        window.oldmilkViz = createVisualizer(canvas);
-        function loop() {
-          if (window.__oldmilkPaused) {
-            // Don't re-schedule - wait for external start
-            return;
-          }
-          window.oldmilkViz.render();
-          autoLoopHandle = requestAnimationFrame(loop);
-        }
-        autoLoopHandle = requestAnimationFrame(loop);
-      }
-    }
-    if (document.readyState === 'complete') {
-      startVisualizer();
-    } else {
-      document.addEventListener('DOMContentLoaded', startVisualizer);
-    }
-    window.__oldmilkPaused = false;
-    window.__oldmilkStopLoop = function() {
-      window.__oldmilkPaused = true;
-      clearCanvasBlack();
-      if (autoLoopHandle) {
-        cancelAnimationFrame(autoLoopHandle);
-        autoLoopHandle = null;
-      }
-    };
-    window.__oldmilkStartLoop = function() {
-      window.__oldmilkPaused = false;
-      function loop() {
-        if (window.__oldmilkPaused) { return; }
-        window.oldmilkViz.render();
-        autoLoopHandle = requestAnimationFrame(loop);
-      }
-      autoLoopHandle = requestAnimationFrame(loop);
+      getBands: function () { return bandArr; }
     };
   }
 

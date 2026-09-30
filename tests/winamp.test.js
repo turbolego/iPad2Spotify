@@ -1,221 +1,150 @@
-// Minimal DOM smoke test for the Winamp frontend wiring.
-// Runs under `node --test` with NO external dependencies (no jsdom/vitest).
-// It shims just enough of the DOM for app.js to load (all elements exist) and
-// verifies the Winamp toggle, controls, and render-population wire correctly.
-// NOTE: app.js is IIFE-wrapped ES5, so we drive it via the DOM handlers it
-// attaches at load, not by calling functions directly.
-const { test } = require('node:test');
+'use strict';
+const test = require('node:test');
 const assert = require('node:assert');
-const fs = require('node:fs');
-const path = require('node:path');
+const fs = require('fs');
+const path = require('path');
+const W = require('../winamp.js');
 
-const ROOT = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const js = fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+const root = path.join(__dirname, '..');
+const track = (over) => Object.assign({
+  is_playing: true,
+  progress_ms: 30000,
+  item: { id: 'abc123', name: 'Song', duration_ms: 200000, album: { name: 'Album' }, artists: [{ name: 'A' }, { name: 'B' }] }
+}, over);
+const flatEq = () => ({ on: true, preamp: 50, bands: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50] });
 
-class El {
-  constructor(id) { this._id = id; this.innerHTML = ''; this.className = ''; this.style = {}; this.handlers = {}; this._children = []; }
-  addEventListener(ev, fn) { this.handlers[ev] = fn; }
-  set className(v) { this._className = v; } get className() { return this._className || ''; }
-  set src(v) { this._src = v; } get src() { return this._src; }
-  get value() { return this._value || ''; } set value(v) { this._value = v; }
-  set onclick(fn) { this.handlers['click'] = fn; }
-  appendChild(child) { this._children.push(child); return child; }
-  insertBefore(child, ref) { this._children.push(child); return child; }
-  getElementsByClassName(cls) { return this._children.filter((c) => c && String(c.className||'').indexOf(cls) !== -1); }
-  querySelector(sel) {
-    if (sel && sel[0] === '.') return this._children.find((c) => c && String(c.className||'').split(/\s+/).indexOf(sel.slice(1)) !== -1) || null;
-    return this._children.find((c) => c && c._id && sel === '#'+c._id) || null;
-  }
-  querySelectorAll() { return []; }
-  get firstChild() { return this._children.length ? this._children[0] : null; }
-  getAttribute(a) { return this._attrs ? this._attrs[a] : null; }
-  focus() {}
-}
-
-function buildDom() {
-  const els = {};
-  const idTags = [...html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)];
-  const listeners = {};
-  for (const m of idTags) {
-    const el = new El(m[1]);
-    const clsMatch = m[0].match(/class="([^"]*)"/);
-    if (clsMatch) el._className = clsMatch[1];
-    el.offsetLeft = 0; el.offsetTop = 0;
-    el.style = el.style || {};
-    el.getContext = () => null;
-    el.value = 50;
-    // For module windows, synthesize a .wtitle child so the drag listener wires.
-    if (/^winamp-(main|playlist|eq|milkdrop)$/.test(m[1])) {
-      const title = new El(m[1] + '-title');
-      title.className = 'wtitle';
-      el.appendChild(title);
-    }
-    const seedMap = { 'winamp-toggle': 'Winamp Mode', 'winamp-track': 'Nothing playing', 'winamp-elapsed': '0:00', 'winamp-duration': '0:00' };
-    if (seedMap[m[1]]) el.innerHTML = seedMap[m[1]];
-    els[m[1]] = el;
-  }
-  // Wire the drag listeners and title query for each module window
-  const qsa = (sel) => {
-    if (sel === '.wbtn-close' || sel === '.wbtn-min') return [];
-    if (sel === '.eq-slider-v') return [];
-    return [];
-  };
-  const document = {
-    getElementById: (id) => {
-      if (!els[id]) throw new Error('Missing element: ' + id);
-      return els[id];
-    },
-    body: new El('body'),
-    getElementsByTagName: () => [],
-    getElementsByClassName: (c) => Object.values(els).filter((el) => String(el.className||'').indexOf(c) !== -1),
-    createElement: () => new El('dyn'),
-    querySelectorAll: qsa,
-    querySelector: () => null,
-    addEventListener: (ev, fn) => { listeners[ev] = fn; },
-    documentElement: { clientHeight: 768, clientWidth: 1024 },
-  };
-  // Give each module element a .querySelector('.wtitle') returning a fake title
-  return { document, els, listeners };
-}
-
-function loadApp() {
-  const { document, els, listeners } = buildDom();
-  const script = js.replace(
-    /request\('GET','\/api\/spotify\/currently-playing',null,function\(status\)\{if\(status===200\)showPlayer\(\)\}\);/,
-    '' // strip the startup poll
-  );
-  // Provide the request function used at startup poll — we stripped it, fine.
-  const fn = new Function('document', 'window', 'location', 'XMLHttpRequest', 'setInterval', 'clearTimeout', 'setTimeout', script + '\n;window.__winampOn=function(){return typeof winampOn!=="undefined"?winampOn:null};\nwindow.__getWinampEls=function(){return "<<<WINAMP_ELS>>>"};');
-  // We can't reach closure vars directly; instead drive via DOM clicks.
-  // Call the IIFE. Provide stubs.
-  fn(document, {location: {host:'x',href:''}}, {host:'x', href:''}, class {
-    open(){} setRequestHeader(){} send(){} set timeout(v){} get timeout(){return 120000}
-  }, function(){}, function(){}, function(){});
-  return { document, els, listeners };
-}
-
-test('app.js loads without throwing (all referenced ids exist)', () => {
-  assert.doesNotThrow(() => loadApp());
+test('fromSpotify maps a playing track', () => {
+  const s = W.fromSpotify(track(), 1000);
+  assert.strictEqual(s.status, 'playing');
+  assert.strictEqual(s.artist, 'A, B');
+  assert.strictEqual(s.title, 'Song');
+  assert.strictEqual(s.trackId, 'abc123');
+  assert.strictEqual(s.durationMs, 200000);
+  assert.strictEqual(s.progressMs, 30000);
 });
 
-test('Winamp toggle shows/hides the winamp player and swaps label', () => {
-  const { els } = loadApp();
-  const toggle = els['winamp-toggle'];
-  const wp = els['winamp-player'];
-  assert.ok(toggle.handlers['click'], 'winamp-toggle has a click handler');
-  // Initially hidden + label "Winamp Mode"
-  assert.ok(wp.className.includes('hidden'));
-  assert.strictEqual(toggle.innerHTML, 'Winamp Mode');
-  // Click on
-  toggle.handlers['click']();
-  assert.ok(!wp.className.includes('hidden'), 'winamp player shown after toggle on');
-  assert.strictEqual(toggle.innerHTML, 'Exit Winamp');
-  assert.ok(els['player'].className.includes('hidden'), 'regular player hidden');
-  // Click off
-  toggle.handlers['click']();
-  assert.ok(wp.className.includes('hidden'), 'winamp player hidden after toggle off');
-  assert.strictEqual(toggle.innerHTML, 'Winamp Mode');
+test('fromSpotify maps paused, and a missing item to stopped (not "playing")', () => {
+  assert.strictEqual(W.fromSpotify(track({ is_playing: false }), 0).status, 'paused');
+  assert.strictEqual(W.fromSpotify({ item: null, is_playing: true }, 0).status, 'stopped');
+  assert.strictEqual(W.fromSpotify({ item: null, is_playing: false }, 0).status, 'stopped');
+  assert.strictEqual(W.fromSpotify(null, 0).status, 'stopped');
 });
 
-test('Winamp controls fire playback commands', () => {
-  const { document, els } = loadApp();
-  // Expose the closure-scoped command(), and make the XHR stub capture URL+body.
-  const jsProbe = js.replace(
-    'request(\'GET\',\'/api/spotify/currently-playing\',null,function(status){if(status===200)showPlayer()});',
-    'window.__expose={};window.__expose.command=command;'
-  );
-  const w = { location: { host: 'x', href: '' }, __captured: [] };
-  class CapturingXHR {
-    open(m, u, a) { this._method = m; this.url = u; }
-    setRequestHeader() {}
-    set timeout(v) {}
-    send(body) {
-      w.__captured.push({ method: this._method, body: body });
-      if (this.onreadystatechange) { this.readyState = 4; this.status = 200; this.onreadystatechange(); }
-    }
-  }
-  const probeFn = new Function('document', 'window', 'location', 'XMLHttpRequest', 'setInterval', 'clearTimeout', 'setTimeout', jsProbe);
-  probeFn(document, w, { host: 'x', href: '' }, CapturingXHR, function(){}, function(){}, function(){});
-  els['winamp-play'].handlers['click']();
-  els['winamp-prev'].handlers['click']();
-  els['winamp-next'].handlers['click']();
-  const actions = w.__captured.map((c) => JSON.parse(c.body).action);
-  assert.ok(actions.includes('play'), 'play command sent, got: ' + actions);
-  assert.ok(actions.includes('previous'), 'previous command sent');
-  assert.ok(actions.includes('next'), 'next command sent');
+test('positionMs advances only while playing and clamps to duration', () => {
+  const playing = W.fromSpotify(track(), 1000);
+  assert.strictEqual(W.positionMs(playing, 6000), 35000);
+  assert.strictEqual(W.positionMs(playing, 1000 + 10 * 60000), 200000);
+  const paused = W.fromSpotify(track({ is_playing: false }), 1000);
+  assert.strictEqual(W.positionMs(paused, 60000), 30000);
+  assert.strictEqual(W.positionMs(W.fromSpotify(null, 0), 5000), 0);
 });
 
-test('render() populates winamp track, time and progress', () => {
-  const { document, els } = loadApp();
-  // Expose the closure-scoped render/updateTimeline by appending an export line.
-  const jsProbe = js.replace(
-    'request(\'GET\',\'/api/spotify/currently-playing\',null,function(status){if(status===200)showPlayer()});',
-    'window.__expose={};window.__expose.render=render;window.__expose.updateTimeline=updateTimeline;window.__expose.setWinamp=setWinamp;'
-  );
-  const w = { location: { host: 'x', href: '' } };
-  const probeFn = new Function('document', 'window', 'location', 'XMLHttpRequest', 'setInterval', 'clearTimeout', 'setTimeout',
-    jsProbe);
-  probeFn(document, w, { host: 'x', href: '' }, class { open(){} setRequestHeader(){} send(){} set timeout(v){} },
-    function(){}, function(){}, function(){});
-  const track = {
-    name: 'Test Song',
-    artists: [{ name: 'Artist One' }],
-    album: { name: 'Album X', images: [{ url: 'http://img/x.jpg' }] },
-    duration_ms: 200000
-  };
-  const data = { is_playing: true, progress_ms: 50000, item: track };
-  w.__expose.setWinamp(true);
-  w.__expose.render(data);
-  assert.ok(!els['winamp-player'].className.includes('hidden'), 'winamp visible after toggle+render');
-  assert.ok(els['winamp-track'].innerHTML.includes('Test Song'), 'track name in marquee');
-  assert.ok(els['winamp-track'].innerHTML.includes('Artist One'), 'artist in marquee');
-  assert.match(els['winamp-elapsed'].innerHTML, /^0:50$/, 'elapsed shows 0:50');
-  assert.match(els['winamp-duration'].innerHTML, /^3:20$/, 'duration shows 3:20');
-  assert.strictEqual(els['winamp-fill'].style.width, '25%', 'progress bar at 25%');
+test('spectrum is deterministic, bounded and track-dependent', () => {
+  const p = W.trackProfile('abc123');
+  const a = W.spectrum(p, 42.5, 200, flatEq(), new Array(19));
+  const b = W.spectrum(W.trackProfile('abc123'), 42.5, 200, flatEq(), new Array(19));
+  assert.deepStrictEqual(a, b);
+  a.forEach((v) => assert.ok(v >= 0 && v <= 1));
+  assert.ok(a.some((v) => v > 0.05), 'mid-song spectrum should not be silent');
+  const other = W.spectrum(W.trackProfile('zzz999'), 42.5, 200, flatEq(), new Array(19));
+  assert.notDeepStrictEqual(a, other);
 });
 
-test('Winamp modules are draggable and positioned correctly', () => {
-  const { document, els, listeners } = loadApp();
-  // Verify initial layout
-  assert.strictEqual(els['winamp-main'].style.left, '20px', 'main left');
-  assert.strictEqual(els['winamp-main'].style.top, '40px', 'main top');
-  assert.strictEqual(els['winamp-playlist'].style.left, '310px', 'playlist left');
-  assert.strictEqual(els['winamp-playlist'].style.top, '40px', 'playlist top');
-  assert.strictEqual(els['winamp-eq'].style.left, '20px', 'eq left');
-  assert.strictEqual(els['winamp-eq'].style.top, '181px', 'eq top');
-  assert.strictEqual(els['winamp-milkdrop'].style.left, '310px', 'milkdrop left');
-  assert.strictEqual(els['winamp-milkdrop'].style.top, '181px', 'milkdrop top');
-  // Simulate drag
-  const main = els['winamp-main'];
-  main.offsetLeft = 20; main.offsetTop = 40;
-  const title = main.querySelector('.wtitle');
-  assert.ok(title && title.handlers['mousedown'], 'main window has a mousedown drag handler on title');
-  const dragStart = { preventDefault: () => {}, stopPropagation: () => {}, touches: [{ clientX: 20, clientY: 40 }], target: title };
-  const dragMove = { touches: [{ clientX: 100, clientY: 100 }] };
-  // Call the drag handlers
-  title.handlers['mousedown'](dragStart);
-  listeners['mousemove'](dragMove);
-  listeners['mouseup']();
-  // Verify new position
-  assert.strictEqual(main.style.left, '100px', 'main moved left');
-  assert.strictEqual(main.style.top, '100px', 'main moved top');
+test('spectrum fades in at the start and out at the end of a track', () => {
+  const p = W.trackProfile('abc123');
+  const sum = (arr) => arr.reduce((s, v) => s + v, 0);
+  assert.strictEqual(sum(W.spectrum(p, 0, 200, flatEq(), new Array(19))), 0);
+  assert.strictEqual(sum(W.spectrum(p, 200, 200, flatEq(), new Array(19))), 0);
 });
 
-test('Winamp exit restores the regular player', () => {
-  const { document, els } = loadApp();
-  const jsProbe = js.replace(
-    'request(\'GET\',\'/api/spotify/currently-playing\',null,function(status){if(status===200)showPlayer()});',
-    'window.__expose={};window.__expose.render=render;window.__expose.setWinamp=setWinamp;'
-  );
-  const w = { location: { host: 'x', href: '' } };
-  const probeFn = new Function('document', 'window', 'location', 'XMLHttpRequest', 'setInterval', 'clearTimeout', 'setTimeout', jsProbe);
-  probeFn(document, w, { host: 'x', href: '' }, class { open(){} setRequestHeader(){} send(){} set timeout(v){} },
-    function(){}, function(){}, function(){});
-  w.__expose.setWinamp(true);
-  assert.ok(els['player'].className.includes('hidden'));
-  // exit via the close button
-  els['winamp-exit'].handlers['click']();
-  assert.ok(!els['player'].className.includes('hidden'), 'regular player restored on exit');
-  assert.ok(els['winamp-player'].className.includes('hidden'), 'winamp hidden after exit');
+test('EQ shapes the spectrum and can be switched off', () => {
+  const p = W.trackProfile('abc123');
+  const boosted = flatEq();
+  boosted.bands[0] = 100;
+  const flat = W.spectrum(p, 42.5, 200, flatEq(), new Array(19));
+  const bass = W.spectrum(p, 42.5, 200, boosted, new Array(19));
+  assert.ok(bass[0] >= flat[0]);
+  assert.ok(bass[0] > flat[0] || flat[0] === 1);
+  assert.strictEqual(W.eqGainDb(Object.assign(boosted, { on: false }), 0), 0);
+  assert.strictEqual(W.eqGainDb(boosted, 0), 0);
+  boosted.on = true;
+  assert.strictEqual(W.eqGainDb(boosted, 0), 12);
+});
+
+test('slider/dB conversion matches Winamp range', () => {
+  assert.strictEqual(W.sliderToDb(0), -12);
+  assert.strictEqual(W.sliderToDb(50), 0);
+  assert.strictEqual(W.sliderToDb(100), 12);
+  assert.strictEqual(W.dbToSlider(-12), 0);
+  assert.strictEqual(W.dbToSlider(12), 100);
+  W.EQ_PRESETS.forEach((p) => p.bands.forEach((db) => assert.ok(Math.abs(db) <= 12, p.name)));
+});
+
+test('text glyphs map to TEXT.BMP cells, folding accents and unknown characters', () => {
+  assert.deepStrictEqual(W.textGlyphs('A1:'), [[0, 0], [1, 1], [1, 12]]);
+  assert.deepStrictEqual(W.textGlyphs('é'), [[0, 4]]);
+  assert.deepStrictEqual(W.textGlyphs('Ö'), [[2, 1]]);
+  assert.deepStrictEqual(W.textGlyphs('\u4e2d'), [[0, 30]]);
+});
+
+test('clock digits and marquee text', () => {
+  assert.deepStrictEqual(W.clockDigits(65000), [0, 1, 0, 5]);
+  assert.deepStrictEqual(W.clockDigits(200 * 60000), [9, 9, 5, 9]);
+  assert.strictEqual(W.marqueeText(W.fromSpotify(track(), 0)), 'A, B - Song (3:20)');
+  assert.match(W.marqueeText(W.fromSpotify(null, 0)), /nothing playing/);
+});
+
+test('layout docks windows and fits the viewport', () => {
+  const all = W.computeLayout({ eq: true, pl: true, md: true }, 1024, 768);
+  assert.deepStrictEqual(all.pos.eq, { x: 0, y: 116 });
+  assert.deepStrictEqual(all.pos.pl, { x: 0, y: 232 });
+  assert.deepStrictEqual(all.pos.md, { x: 275, y: 0, h: 348 });
+  assert.ok(all.width * all.scale <= 1024 && all.height * all.scale <= 768);
+  const portrait = W.computeLayout({ eq: true, pl: true, md: true }, 768, 1024);
+  assert.deepStrictEqual(portrait.pos.md, { x: 0, y: 348, h: 232 });
+  assert.ok(portrait.scale > (768 / 550) * 0.96, "stacking beats side-by-side in portrait");
+  const main = W.computeLayout({}, 1024, 768);
+  assert.strictEqual(main.height, 116);
+  assert.strictEqual(main.scale, 3);
+  assert.strictEqual(main.pos.md, undefined);
+});
+
+test('settings fall back to defaults on corrupt storage', () => {
+  const bad = { getItem: () => '{not json' };
+  const s = W.loadSettings(bad);
+  assert.strictEqual(s.eq.bands.length, 10);
+  assert.strictEqual(s.vis, 'analyzer');
+  assert.strictEqual(W.loadSettings(null).open.md, true);
+});
+
+test('index.html wires Winamp mode without the removed winamp2-js port', () => {
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(html, /id="winamp-toggle"/);
+  assert.match(html, /id="winamp"/);
+  assert.match(html, /href="winamp\.css/);
+  assert.ok(html.indexOf('oldmilk.js') < html.indexOf('winamp.js') && html.indexOf('winamp.js') < html.indexOf('app.js'));
+  assert.doesNotMatch(html, /winamp2-js/);
+});
+
+test('every skin image referenced by winamp.css exists', () => {
+  const css = fs.readFileSync(path.join(root, 'winamp.css'), 'utf8');
+  const urls = Array.from(new Set((css.match(/url\(([^)]+)\)/g) || []).map((u) => u.slice(4, -1))));
+  assert.ok(urls.length > 10);
+  urls.forEach((u) => assert.ok(fs.existsSync(path.join(root, u)), u));
+});
+
+test('front-end scripts stay ES5 for iOS 9 Safari', () => {
+  ['winamp.js', 'app.js', 'vendor/oldmilk/oldmilk.js'].forEach((file) => {
+    const src = fs.readFileSync(path.join(root, file), 'utf8');
+    assert.doesNotMatch(src, /(^|[^.\w])(let|const|class)\s/m, file);
+    assert.doesNotMatch(src, /=>|`/, file);
+  });
+});
+
+test('OldMilk exposes host-driven rendering and no longer starts its own loop', () => {
+  const src = fs.readFileSync(path.join(root, 'vendor/oldmilk/oldmilk.js'), 'utf8');
+  assert.match(src, /setBands:/);
+  assert.match(src, /function render\(timeSec\)/);
+  assert.doesNotMatch(src, /requestAnimationFrame/);
+  assert.doesNotMatch(src, /__oldmilk/);
 });

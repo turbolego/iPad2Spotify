@@ -13,21 +13,12 @@ Since we need to use Vercel anyways, the webapp creates a shortcode for a "badge
 
 ## Winamp Mode
 
-The Winamp Mode feature recreates the classic Winamp 2.9 interface with four modular windows: main player, playlist editor, equalizer, and Milkdrop visualizer. The visual style, layout, and controls are based on [winamp2-js](https://github.com/rvpanoz/winamp2-js) by rvpanoz — an MIT-licensed HTML5 reimplementation of Winamp 2.9. The skin graphics (BMP sprites) are extracted from winamp2-js's built-in `base-2.91` skin. Credit to Jordan Eldredge (original winamp2-js author) and rvpanoz (repository maintainer) for the CSS and skin assets used in this mode.
+**Winamp Mode** is a Winamp 2.x-style remote control and display for Spotify: main window, equalizer, playlist and a Milkdrop window, drawn with the original Winamp 2.91 base-skin bitmaps. See [Features](#features) for how it behaves and what it deliberately does not do.
 
-The Winamp skin uses:
-- Thick beveled 3D window borders (outset/inset styling)
-- Chunky metallic title bars with gradient shading
-- Recessed LCD-style display area with inset borders
-- 3D-raised transport buttons (Previous, Play, Pause, Stop, Next)
-- 10-band equalizer with vertical sliders
-- OldMilk visualizer for the Milkdrop window
-
-License notices:
-- winamp2-js is MIT licensed — https://github.com/rvpanoz/winamp2-js/blob/master/LICENSE.txt
-- Winamp is a trademark of Nullsoft/Winamp LLC.
-- The Webamp project (https://webamp.org, https://github.com/captbaritone/webamp) is an additional reference for Winamp 2.x recreation.
-
+Credits and notices:
+- Skin bitmaps: the Winamp 2.91 base skin (`vendor/winamp-skin/base-2.91`), as distributed with [Webamp](https://github.com/captbaritone/webamp) (MIT) and winamp2-js by Jordan Eldredge. Sprite coordinates follow Webamp's skin sprite map. `scripts/build-winamp-skin.py` converts the BMPs into the PNG sheets the page uses.
+- Milkdrop window: [OldMilk](https://www.npmjs.com/package/@turbolego/oldmilk), vendored in `vendor/oldmilk` with small local changes.
+- Winamp is a trademark of Winamp SA / Nullsoft. This project is not affiliated with Winamp.
 
 ## What this project solves
 
@@ -256,22 +247,23 @@ The dashboard provides:
 - Minimalist View with centered album artwork and track text,
 - Search Artist to start artist radio playback for any artist,
 - Search Playlist to find Spotify playlists and start a selected playlist,
-- Winamp Mode, a retro Winamp-style interface for the same dashboard.
+- Winamp Mode, a Winamp 2.x-style remote control with a playback-driven visualizer.
 
 The regular player also has a **Minimalist View** button. Minimalist View centers the album cover on the screen and places the artist and song name directly below it, hiding the other controls and interface elements. Tap the album cover to open the **Exit minimalist view?** confirmation. Select **yes** to return to the regular player or **no** to continue viewing the minimalist display.
 
 The **Search Artist** button opens a search dialog. Enter an artist name and select **Search** to see matching Spotify artists, then select an artist to start playback of that artist's catalog (Spotify's equivalent of "artist radio") on the currently active device.
 
-The **Winamp Mode** button swaps the dashboard for a retro Winamp-style skin that resembles the classic Winamp 2 player (and the Winamp-inspired Spotiamp client). It runs entirely in the same ES5/XMLHttpRequest frontend — it is a CSS/JS skin of the existing dashboard, not the Webamp browser bundle — so it keeps working on the iPad 2 running Safari on iOS 9.3.6.
+The **Winamp Mode** button opens a Winamp 2.x-style remote control for the same Spotify session. It is plain ES5 and bitmap sprites (no Webamp bundle, no build step), so it runs on the iPad 2 with Safari on iOS 9.3.6. The mode is remembered on the device until you exit it with **Exit Winamp mode** or the main window's close/minimize buttons.
 
-The mode is made of four free-floating **modules** whose layout and look mirror Webamp's windows:
+iPad2Spotify is a remote: Spotify plays the audio on another device, and the Spotify Web API only provides playback state and commands, not the audio stream. Winamp Mode is designed around that rather than imitating a local player:
 
-- **Main window** — the player: current track in a scrolling marquee, album art, a bouncing-bar "oscilloscope" that animates while playing, elapsed/total time, a seekbar, and previous/play/stop/pause/next controls plus a volume bar. All playback buttons drive Spotify through the same allowlisted command API as the regular player.
-- **Playlist Editor** — a local observed-track list rendered as green-on-black rows (Webamp's playlist palette); it is not Spotify's queue, and the currently playing row is highlighted.
-- **Equalizer** — the 10 Winamp EQ bands (60Hz–16kHz) plus preamp as draggable vertical sliders with live dB readout, and **ON/AUTO** toggles. Equalizer bands are a visual control (a canvas fade), not actual audio DSP, since the iPad 2 exposes no Web Audio EQ.
-- **Milkdrop** — a canvas visualizer that draws reactive waveform bars while music plays. It is a CSS/canvas stand-in (a 2D oscilloscope gradient), because Milkdrop's real renderer needs WebGL/Butterchurn, which the iPad 2 GPU does not provide.
+- **Main window** — elapsed time (tap for remaining time), play/pause/stop indicator, a scrolling title marquee, position bar and the transport buttons. Previous/Play/Pause/Next send Spotify commands; Pause toggles like Winamp's, and Stop pauses Spotify because Spotify has no stop. Eject opens the artist/playlist search. Volume, balance, shuffle and repeat are shown but not controllable, since the command API does not include them.
+- **Visualizer** — the analyzer (tap to cycle analyzer, oscilloscope and off) and the Milkdrop window are driven by a deterministic pseudo-spectrum computed from the track ID, tempo-like beat patterns and the playback position. The same moment of a song always looks the same; it animates while playing, freezes when paused, and fades out when nothing is playing. It is not audio-reactive: Spotify's audio is not available to web pages, and Spotify's developer policy does not allow synchronizing its recordings with visuals.
+- **Equalizer** — ten bands plus preamp, ON, AUTO (a deterministic preset per track) and PRESETS (Winamp's built-in presets). The EQ shapes the visualizers only; it cannot change Spotify's sound. Settings are saved on the device.
+- **Playlist** — the tracks seen during this session, newest last, with the current track highlighted. It is a history, not Spotify's queue.
+- **Milkdrop** — toggle with the clutter bar's **V** button or the window's close button. It uses WebGL when available and a 2D canvas otherwise, rendering at about 30 fps while playing and not at all while paused or hidden.
 
-Every module has a title bar with a **shade** (▬) and **close** (×) control, and every module can be **dragged** around the screen, with proximity-based edge alignment: when a dragged window is within 15px of a neighboring module edge, the edges align. Windows are otherwise only constrained from being fully dragged off-screen. Choose **Exit Winamp** to return to the regular dashboard.
+The windows dock like Winamp's default layout (Milkdrop beside them in landscape, below in portrait) and are scaled to fit the screen.
 
 Playback controls generally require a Spotify Premium account and an active controllable Spotify device. The dashboard does not play audio itself.
 
