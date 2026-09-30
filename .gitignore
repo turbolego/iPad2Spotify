@@ -17,3 +17,5 @@ local*
 
 # Vercel log exports (may contain request metadata; never commit)
 *-log-export-*.json
+.vercel
+.env*

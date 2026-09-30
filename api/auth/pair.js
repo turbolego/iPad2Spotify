@@ -13,7 +13,7 @@ module.exports = function (req, res) {
       lib.kvDel('pair:' + code, function () {
         var session = { refresh_token: record.refresh_token };
         if (record.user_id) session.user_id = record.user_id;
-        if (!lib.setSession(res, session)) return lib.json(res, 500, { error: 'Session encryption is not configured.' });
+        if (!lib.setSession(res, session, !lib.isLocalHost(req))) return lib.json(res, 500, { error: 'Session encryption is not configured.' });
         // Keep an existing account badge working after re-login so its static URL never needs replacing.
         var id = lib.badgeId(record.user_id);
         if (!id) return lib.json(res, 200, { connected: true });
