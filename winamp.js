@@ -61,6 +61,7 @@
     '\u2018': '\'', '\u2019': '\'', '\u201c': '"', '\u201d': '"', '\u2013': '-', '\u2014': '-', '|': '/', ';': ':', '~': '-', '\u0060': '\'' };
   var WINDOW_W = 275, WINDOW_H = 116, POS_TRACK = 248 - 29, VIS_BARS = 19, MILK_BINS = 48;
   var MARQUEE_STEP_MS = 220, FLASH_MS = 1600, STORAGE_KEY = 'ipad2spotify.winamp';
+  var BACKGROUND_KEY = 'ipad2spotify.winamp.background', SNAP_DISTANCE = 15, WINDOW_NAMES = ['main', 'eq', 'pl', 'md'];
   var PRESET_NAMES = ['Prismatic Hourglass Tunnel', 'Prismatic Foldwheel', 'Interleaved Ribbons',
     'Radial Spectrum', 'Stellar Wake', 'Resonant Plasma', 'Spiral Vortex'];
 
@@ -214,11 +215,84 @@
       left: Math.round((vw - width * scale) / 2), top: Math.round((vh - height * scale) / 2) };
   }
 
+  // Window snapping, ported from Webamp's snapUtils/WindowManager. Boxes are {x, y, width, height}.
+  function near(a, b) { return Math.abs(a - b) < SNAP_DISTANCE; }
+  function overlapX(a, b) { return a.x <= b.x + b.width + SNAP_DISTANCE && b.x <= a.x + a.width + SNAP_DISTANCE; }
+  function overlapY(a, b) { return a.y <= b.y + b.height + SNAP_DISTANCE && b.y <= a.y + a.height + SNAP_DISTANCE; }
+  // New position for box a that snaps it to box b; x/y are undefined when that axis doesn't snap.
+  function snapBox(a, b) {
+    var x, y;
+    if (overlapY(a, b)) {
+      if (near(a.x, b.x + b.width)) x = b.x + b.width;
+      else if (near(a.x + a.width, b.x)) x = b.x - a.width;
+      else if (near(a.x, b.x)) x = b.x;
+      else if (near(a.x + a.width, b.x + b.width)) x = b.x + b.width - a.width;
+    }
+    if (overlapX(a, b)) {
+      if (near(a.y, b.y + b.height)) y = b.y + b.height;
+      else if (near(a.y + a.height, b.y)) y = b.y - a.height;
+      else if (near(a.y, b.y)) y = b.y;
+      else if (near(a.y + a.height, b.y + b.height)) y = b.y + b.height - a.height;
+    }
+    return { x: x, y: y };
+  }
+  function snapWithin(a, width, height) {
+    var x, y;
+    if (a.x - SNAP_DISTANCE < 0) x = 0;
+    else if (a.x + a.width + SNAP_DISTANCE > width) x = width - a.width;
+    if (a.y - SNAP_DISTANCE < 0) y = 0;
+    else if (a.y + a.height + SNAP_DISTANCE > height) y = height - a.height;
+    return { x: x, y: y };
+  }
+  function boundingBox(boxes) {
+    var l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (var i = 0; i < boxes.length; i++) {
+      l = Math.min(l, boxes[i].x); t = Math.min(t, boxes[i].y);
+      r = Math.max(r, boxes[i].x + boxes[i].width); b = Math.max(b, boxes[i].y + boxes[i].height);
+    }
+    return { x: l, y: t, width: r - l, height: b - t };
+  }
+  // Windows docked (transitively) to start; dragging the main window brings these along.
+  function connectedWindows(boxes, start) {
+    var found = [start];
+    for (var k = 0; k < found.length; k++) {
+      for (var i = 0; i < boxes.length; i++) {
+        if (found.indexOf(boxes[i]) !== -1) continue;
+        var s = snapBox(boxes[i], found[k]);
+        if (s.x !== undefined || s.y !== undefined) found.push(boxes[i]);
+      }
+    }
+    return found;
+  }
+  function shift(box, d) { return { x: box.x + d.x, y: box.y + d.y, width: box.width, height: box.height }; }
+  // Final offset for a drag: snap the moving group to stationary windows and to the screen edges.
+  function dragOffset(moving, stationary, proposed, width, height) {
+    var snapD = { x: 0, y: 0 }, moved = [], i, j;
+    for (i = 0; i < moving.length; i++) moved.push(shift(moving[i], proposed));
+    for (i = 0; i < moved.length; i++) {
+      for (j = 0; j < stationary.length; j++) {
+        var s = snapBox(moved[i], stationary[j]);
+        if (!snapD.x && s.x !== undefined) snapD.x = s.x - moved[i].x;
+        if (!snapD.y && s.y !== undefined) snapD.y = s.y - moved[i].y;
+      }
+    }
+    var box = boundingBox(moved), w = snapWithin(box, width, height);
+    var withinD = { x: w.x === undefined ? 0 : w.x - box.x, y: w.y === undefined ? 0 : w.y - box.y };
+    function pick(a, b) { return a === 0 || b === 0 ? a + b : (Math.abs(a) < Math.abs(b) ? a : b); }
+    return { x: proposed.x + pick(snapD.x, withinD.x), y: proposed.y + pick(snapD.y, withinD.y) };
+  }
+  // Size that fits (w, h) within max x max, keeping the aspect ratio.
+  function fitWithin(w, h, max) {
+    var k = Math.min(1, max / Math.max(w, h, 1));
+    return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
+  }
+
   // ---------------------------------------------------------------- DOM view
 
   var MAIN_HTML =
-    '<div class="wa-window wa-main" data-window="main">' +
-      '<div class="wa-main-title"></div>' +
+    '<div class="wa-window wa-main wa-drag" data-window="main">' +
+      '<div class="wa-main-title wa-drag"></div>' +
+      '<button type="button" class="wa-btn wa-main-options" data-action="menu" aria-label="Main menu"></button>' +
       '<button type="button" class="wa-btn wa-main-minimize" data-action="exit" aria-label="Exit Winamp mode"></button>' +
       '<button type="button" class="wa-btn wa-main-close" data-action="exit" aria-label="Exit Winamp mode"></button>' +
       '<div class="wa-clutter"></div>' +
@@ -245,8 +319,8 @@
     '</div>';
 
   function eqHtml() {
-    var html = '<div class="wa-window wa-eq" data-window="eq">' +
-      '<div class="wa-eq-title"></div>' +
+    var html = '<div class="wa-window wa-eq wa-drag" data-window="eq">' +
+      '<div class="wa-eq-title wa-drag"></div>' +
       '<button type="button" class="wa-btn wa-eq-close" data-action="toggle-eq" aria-label="Close equalizer"></button>' +
       '<button type="button" class="wa-btn wa-eq-on" data-action="eq-on" aria-label="Equalizer on"></button>' +
       '<button type="button" class="wa-btn wa-eq-auto" data-action="eq-auto" aria-label="Automatic equalizer preset per track"></button>' +
@@ -261,16 +335,16 @@
 
   var PL_HTML =
     '<div class="wa-window wa-pl" data-window="pl">' +
-      '<div class="wa-pl-top wa-pl-tl"></div>' +
-      '<div class="wa-pl-top wa-pl-fill" style="left:25px"></div><div class="wa-pl-top wa-pl-fill" style="left:50px"></div><div class="wa-pl-top wa-pl-fill" style="left:75px;width:12px"></div>' +
-      '<div class="wa-pl-top wa-pl-title"></div>' +
-      '<div class="wa-pl-top wa-pl-fill" style="left:187px"></div><div class="wa-pl-top wa-pl-fill" style="left:212px"></div><div class="wa-pl-top wa-pl-fill" style="left:237px;width:13px"></div>' +
-      '<div class="wa-pl-top wa-pl-tr"></div>' +
-      '<div class="wa-pl-left" style="top:20px"></div><div class="wa-pl-left" style="top:49px"></div>' +
-      '<div class="wa-pl-right" style="top:20px"></div><div class="wa-pl-right" style="top:49px"></div>' +
-      '<div class="wa-pl-handle"></div>' +
+      '<div class="wa-drag wa-pl-top wa-pl-tl"></div>' +
+      '<div class="wa-drag wa-pl-top wa-pl-fill" style="left:25px"></div><div class="wa-drag wa-pl-top wa-pl-fill" style="left:50px"></div><div class="wa-drag wa-pl-top wa-pl-fill" style="left:75px;width:12px"></div>' +
+      '<div class="wa-drag wa-pl-top wa-pl-title"></div>' +
+      '<div class="wa-drag wa-pl-top wa-pl-fill" style="left:187px"></div><div class="wa-drag wa-pl-top wa-pl-fill" style="left:212px"></div><div class="wa-drag wa-pl-top wa-pl-fill" style="left:237px;width:13px"></div>' +
+      '<div class="wa-drag wa-pl-top wa-pl-tr"></div>' +
+      '<div class="wa-drag wa-pl-left" style="top:20px"></div><div class="wa-drag wa-pl-left" style="top:49px"></div>' +
+      '<div class="wa-drag wa-pl-right" style="top:20px"></div><div class="wa-drag wa-pl-right" style="top:49px"></div>' +
+      '<div class="wa-drag wa-pl-handle"></div>' +
       '<div class="wa-pl-list"></div>' +
-      '<div class="wa-pl-bl"></div><div class="wa-pl-br"></div>' +
+      '<div class="wa-drag wa-pl-bl"></div><div class="wa-drag wa-pl-br"></div>' +
       '<button type="button" class="wa-btn wa-pl-close" data-action="toggle-pl" aria-label="Close playlist"></button>' +
       '<button type="button" class="wa-btn wa-pl-add" data-action="eject" aria-label="Search artist or playlist"></button>' +
       '<div class="wa-pl-running"></div>' +
@@ -285,13 +359,39 @@
 
   var MD_HTML =
     '<div class="wa-window wa-md" data-window="md">' +
-      '<div class="wa-md-top"></div>' +
-      '<div class="wa-md-left"></div><div class="wa-md-left-bottom"></div>' +
-      '<div class="wa-md-right"></div><div class="wa-md-right-bottom"></div>' +
+      '<div class="wa-drag wa-md-top"></div>' +
+      '<div class="wa-drag wa-md-left"></div><div class="wa-drag wa-md-left-bottom"></div>' +
+      '<div class="wa-drag wa-md-right"></div><div class="wa-drag wa-md-right-bottom"></div>' +
       '<canvas class="wa-md-canvas"></canvas>' +
-      '<div class="wa-md-bottom"></div>' +
+      '<div class="wa-drag wa-md-bottom"></div>' +
       '<button type="button" class="wa-btn wa-md-close" data-action="toggle-md" aria-label="Close Milkdrop"></button>' +
     '</div>';
+
+  // Main menu, modelled on Webamp's main context menu.
+  var MENU_HTML =
+    '<ul class="wa-menu hidden">' +
+      '<li data-action="eject">Search artist/playlist...</li>' +
+      '<li class="wa-hr"><hr></li>' +
+      '<li data-action="toggle-eq" data-check="eq">Equalizer</li>' +
+      '<li data-action="toggle-pl" data-check="pl">Playlist Editor</li>' +
+      '<li data-action="toggle-md" data-check="md">Milkdrop</li>' +
+      '<li class="wa-hr"><hr></li>' +
+      '<li class="wa-menu-file">Set background...<input type="file" accept="image/*" aria-label="Set background image"></li>' +
+      '<li data-action="clear-background" data-show="background">Remove background</li>' +
+      '<li class="wa-hr"><hr></li>' +
+      '<li class="wa-parent" data-action="submenu">Options<ul>' +
+        '<li data-action="time-elapsed" data-check="elapsed">Time elapsed</li>' +
+        '<li data-action="time-remaining" data-check="remaining">Time remaining</li>' +
+        '<li class="wa-hr"><hr></li>' +
+        '<li data-action="vis-analyzer" data-check="vis-analyzer">Spectrum analyzer</li>' +
+        '<li data-action="vis-oscilloscope" data-check="vis-oscilloscope">Oscilloscope</li>' +
+        '<li data-action="vis-off" data-check="vis-off">Visualization off</li>' +
+        '<li class="wa-hr"><hr></li>' +
+        '<li data-action="reset-layout">Reset window positions</li>' +
+      '</ul></li>' +
+      '<li class="wa-hr"><hr></li>' +
+      '<li data-action="exit">Exit</li>' +
+    '</ul>';
 
   function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
@@ -309,7 +409,7 @@
   }
   function defaultSettings() {
     return { eq: { on: true, auto: false, preamp: 50, bands: [50, 50, 50, 50, 50, 50, 50, 50, 50, 50], preset: 0 },
-      open: { eq: true, pl: true, md: true }, vis: 'analyzer', remaining: false };
+      open: { eq: true, pl: true, md: true }, vis: 'analyzer', remaining: false, positions: null };
   }
   function loadSettings(storage) {
     var s = defaultSettings();
@@ -319,6 +419,13 @@
       if (saved && saved.open) s.open = { eq: !!saved.open.eq, pl: !!saved.open.pl, md: !!saved.open.md };
       if (saved && /^(analyzer|oscilloscope|off)$/.test(saved.vis)) s.vis = saved.vis;
       if (saved) s.remaining = !!saved.remaining;
+      if (saved && saved.positions && typeof saved.positions === 'object') {
+        s.positions = {};
+        for (var n = 0; n < WINDOW_NAMES.length; n++) {
+          var p = saved.positions[WINDOW_NAMES[n]];
+          if (p && isFinite(p.x) && isFinite(p.y)) s.positions[WINDOW_NAMES[n]] = { x: Math.round(p.x), y: Math.round(p.y) };
+        }
+      }
     } catch (e) {}
     return s;
   }
@@ -333,16 +440,18 @@
     var i;
     for (i = 0; i < VIS_BARS; i++) peaks[i] = 0;
 
-    root.innerHTML = '<div class="wa-stage">' + MAIN_HTML + eqHtml() + PL_HTML + MD_HTML + '</div>' +
-      '<button type="button" class="wa-exit" data-action="exit">Exit Winamp mode</button>';
+    root.innerHTML = '<div class="wa-stage">' + MAIN_HTML + eqHtml() + PL_HTML + MD_HTML + MENU_HTML + '</div>';
     function q(cls) { return root.querySelector('.' + cls); }
     var stage = q('wa-stage'), el = {
       main: q('wa-main'), eq: q('wa-eq'), pl: q('wa-pl'), md: q('wa-md'),
       digits: [q('wa-d0'), q('wa-d1'), q('wa-d2'), q('wa-d3')], vis: q('wa-vis'),
       marquee: q('wa-marquee-text'), kbps: q('wa-kbps'), khz: q('wa-khz'), posThumb: q('wa-pos-thumb'),
       eqGraph: q('wa-eq-graph'), plList: q('wa-pl-list'), plRunning: q('wa-pl-running'), plMini: q('wa-pl-minitime'),
-      mdCanvas: q('wa-md-canvas')
+      mdCanvas: q('wa-md-canvas'), menu: q('wa-menu')
     };
+    var fileInput = el.menu.querySelector('input'), menuItems = el.menu.getElementsByTagName('li');
+    // Window positions in unscaled Winamp pixels on a stage that covers the whole screen.
+    var pos = {}, view = { scale: 1, width: WINDOW_W, height: WINDOW_H, mdHeight: WINDOW_H }, zTop = 1, background = null;
     var bands = root.querySelectorAll('.wa-band');
     el.kbps.innerHTML = glyphHtml('320');
     el.khz.innerHTML = glyphHtml('44');
@@ -417,26 +526,40 @@
       el.plList.innerHTML = html;
       el.plRunning.innerHTML = glyphHtml(formatTime(state.durationMs) + '/' + formatTime(total));
     }
+    function visible(name) { return name === 'main' || !!settings.open[name]; }
+    function box(name) {
+      return { key: name, x: pos[name].x, y: pos[name].y, width: WINDOW_W, height: name === 'md' ? view.mdHeight : WINDOW_H };
+    }
+    function placeWindow(name) {
+      el[name].style.display = visible(name) ? 'block' : 'none';
+      el[name].style.left = pos[name].x + 'px';
+      el[name].style.top = pos[name].y + 'px';
+    }
     function layout() {
       var vw = win.innerWidth || doc.documentElement.clientWidth, vh = win.innerHeight || doc.documentElement.clientHeight;
-      var l = computeLayout(settings.open, vw, vh - 36), names = ['main', 'eq', 'pl', 'md'];
-      for (var n = 0; n < names.length; n++) {
-        var p = l.pos[names[n]], w = el[names[n]];
-        w.style.display = p ? 'block' : 'none';
-        if (p) { w.style.left = p.x + 'px'; w.style.top = p.y + 'px'; }
-      }
-      stage.style.width = l.width + 'px'; stage.style.height = l.height + 'px';
-      stage.style.left = l.left + 'px'; stage.style.top = l.top + 'px';
+      // Scale for the default docked layout, so opening/closing windows never rescales the others.
+      var l = computeLayout({ eq: true, pl: true, md: true }, vw, vh);
+      view.scale = l.scale;
+      view.width = vw / l.scale;
+      view.height = vh / l.scale;
+      view.mdHeight = l.pos.md.h;
+      stage.style.width = view.width + 'px'; stage.style.height = view.height + 'px';
       var tf = 'scale(' + l.scale + ')';
       stage.style.webkitTransform = tf; stage.style.transform = tf;
-      if (l.pos.md) {
-        el.md.style.height = l.pos.md.h + 'px';
-        var cw = WINDOW_W - 19, ch = l.pos.md.h - 34, key = cw + 'x' + ch;
-        if (key !== milkSize) {
-          milkSize = key;
-          if (milk) milk.resize(cw, ch);
-          else { el.mdCanvas.width = cw; el.mdCanvas.height = ch; }
-        }
+      for (var n = 0; n < WINDOW_NAMES.length; n++) {
+        var name = WINDOW_NAMES[n], saved = settings.positions && settings.positions[name];
+        var p = saved || { x: Math.round(l.pos[name].x + l.left / l.scale), y: Math.round(l.pos[name].y + l.top / l.scale) };
+        var b0 = { width: WINDOW_W, height: name === 'md' ? view.mdHeight : WINDOW_H };
+        // Keep windows on screen after rotation/resizing, like Webamp.
+        pos[name] = { x: Math.max(0, Math.min(p.x, Math.floor(view.width - b0.width))), y: Math.max(0, Math.min(p.y, Math.floor(view.height - b0.height))) };
+        placeWindow(name);
+      }
+      el.md.style.height = view.mdHeight + 'px';
+      var cw = WINDOW_W - 19, ch = view.mdHeight - 34, key = cw + 'x' + ch;
+      if (key !== milkSize) {
+        milkSize = key;
+        if (milk) milk.resize(cw, ch);
+        else { el.mdCanvas.width = cw; el.mdCanvas.height = ch; }
       }
     }
 
@@ -584,6 +707,7 @@
       if (!target || target === root) return;
       var names = ['main', 'eq', 'pl', 'md'];
       for (var n = 0; n < names.length; n++) setClass(el[names[n]], 'wa-focused', el[names[n]] === target);
+      target.style.zIndex = ++zTop;
     }
     function send(action) { if (opts.onCommand) opts.onCommand(action); }
     function handle(action) {
@@ -613,16 +737,136 @@
           if (settings.eq.auto && state.trackId) applyPreset(profile.autoEq, true);
           break;
         case 'eq-preset': applyPreset((settings.eq.preset + 1) % EQ_PRESETS.length, true); break;
+        case 'menu': if (menuOpen()) closeMenu(); else openMenu(); break;
+        case 'time-elapsed': case 'time-remaining':
+          settings.remaining = action === 'time-remaining'; lastClockKey = ''; save(); renderStatus(); renderClock(Date.now()); break;
+        case 'vis-analyzer': case 'vis-oscilloscope': case 'vis-off':
+          settings.vis = action.substring(4); save(); renderStatus();
+          if (visCtx) visCtx.drawImage(visBg, 0, 0);
+          break;
+        case 'reset-layout': settings.positions = null; save(); layout(); break;
+        case 'clear-background':
+          try { if (storage) storage.removeItem(BACKGROUND_KEY); } catch (e) {}
+          applyBackground(null);
+          break;
       }
     }
+
+    // ---- main menu
+    function menuOpen() { return !hasClass(el.menu, 'hidden'); }
+    function closeMenu() {
+      setClass(el.menu, 'hidden', true);
+      var parents = el.menu.querySelectorAll('.wa-parent');
+      for (var k = 0; k < parents.length; k++) setClass(parents[k], 'wa-open', false);
+    }
+    function openMenu() {
+      var checks = { eq: settings.open.eq, pl: settings.open.pl, md: settings.open.md, elapsed: !settings.remaining,
+        remaining: settings.remaining, 'vis-analyzer': settings.vis === 'analyzer', 'vis-oscilloscope': settings.vis === 'oscilloscope',
+        'vis-off': settings.vis === 'off' };
+      for (var k = 0; k < menuItems.length; k++) {
+        var c = menuItems[k].getAttribute('data-check'), show = menuItems[k].getAttribute('data-show');
+        if (c) setClass(menuItems[k], 'wa-checked', !!checks[c]);
+        if (show) menuItems[k].style.display = background ? '' : 'none';
+      }
+      setClass(el.menu, 'hidden', false);
+      el.menu.style.zIndex = ++zTop + 1000;
+      // Drops down from the options button, kept inside the screen.
+      var x = pos.main.x + 6, y = pos.main.y + 12;
+      el.menu.style.left = Math.max(0, Math.min(x, view.width - el.menu.offsetWidth)) + 'px';
+      el.menu.style.top = Math.max(0, Math.min(y, view.height - el.menu.offsetHeight)) + 'px';
+    }
+    // Opens the submenu to the left and/or moves it up when it would leave the screen.
+    function placeSubmenu(parent) {
+      var sub = parent.getElementsByTagName('ul')[0];
+      if (!sub) return;
+      sub.style.top = '';
+      setClass(sub, 'wa-flip', false);
+      var left = el.menu.offsetLeft + parent.offsetLeft, top = el.menu.offsetTop + parent.offsetTop + sub.offsetTop;
+      if (left + parent.offsetWidth + sub.offsetWidth > view.width) setClass(sub, 'wa-flip', true);
+      var over = top + sub.offsetHeight - view.height;
+      if (over > 0) sub.style.top = (sub.offsetTop - Math.min(over, top)) + 'px';
+    }
+    function inMenu(target) {
+      while (target && target !== root) { if (target === el.menu) return true; target = target.parentNode; }
+      return false;
+    }
     root.onclick = function (e) {
-      focusWindow(e.target);
-      var action = actionFor(e.target);
+      var action = actionFor(e.target), insideMenu = inMenu(e.target);
+      if (menuOpen() && !insideMenu && action !== 'menu') { closeMenu(); return; }
+      if (insideMenu) {
+        if (action === 'submenu') {
+          var parent = e.target;
+          while (parent && !hasClass(parent, 'wa-parent')) parent = parent.parentNode;
+          if (parent === e.target) {
+            setClass(parent, 'wa-open', !hasClass(parent, 'wa-open'));
+            if (hasClass(parent, 'wa-open')) placeSubmenu(parent);
+          }
+          return;
+        }
+        if (!action) return;
+        closeMenu();
+      } else {
+        focusWindow(e.target);
+      }
       if (action) handle(action);
     };
 
-    var drag = null;
-    function pointY(e) { var t = e.touches && e.touches.length ? e.touches[0] : e; return t.clientY; }
+    // ---- background image (stored as a base64 data URL in localStorage)
+    function applyBackground(url) {
+      background = url || null;
+      root.style.backgroundImage = background ? 'url(' + background + ')' : '';
+      setClass(root, 'wa-has-background', !!background);
+    }
+    function encodeBackground(img) {
+      var sw = (win.screen && Math.max(win.screen.width, win.screen.height)) || 1024;
+      var max = Math.min(2048, Math.round(sw * (win.devicePixelRatio || 1)));
+      var attempts = [[max, 0.82], [1024, 0.72], [640, 0.6]], url = null;
+      try { if (storage) storage.removeItem(BACKGROUND_KEY); } catch (e) {}
+      for (var k = 0; k < attempts.length; k++) {
+        var size = fitWithin(img.naturalWidth || img.width, img.naturalHeight || img.height, attempts[k][0]);
+        var c = doc.createElement('canvas');
+        c.width = size.width; c.height = size.height;
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = '#101211';
+        ctx.fillRect(0, 0, size.width, size.height);
+        ctx.drawImage(img, 0, 0, size.width, size.height);
+        try { url = c.toDataURL('image/jpeg', attempts[k][1]); } catch (e) { url = null; }
+        if (!url) continue;
+        try {
+          if (!storage) break;
+          storage.setItem(BACKGROUND_KEY, url);
+          applyBackground(url);
+          flashText('Background saved');
+          return;
+        } catch (e2) {}
+      }
+      if (url) { applyBackground(url); flashText('Background too large to save on this device'); }
+      else flashText('Could not use that image');
+    }
+    fileInput.onchange = function () {
+      var file = fileInput.files && fileInput.files[0];
+      closeMenu();
+      if (!file) return;
+      if (file.type && !/^image\//.test(file.type)) { flashText('Not an image file'); fileInput.value = ''; return; }
+      var reader = new win.FileReader();
+      reader.onload = function () {
+        var img = new win.Image();
+        img.onload = function () { encodeBackground(img); };
+        img.onerror = function () { flashText('Could not read that image'); };
+        img.src = reader.result;
+      };
+      reader.onerror = function () { flashText('Could not read that image'); };
+      reader.readAsDataURL(file);
+      fileInput.value = '';
+    };
+    try { applyBackground(storage && storage.getItem(BACKGROUND_KEY)); } catch (e) { applyBackground(null); }
+
+    var drag = null, windowDrag = null;
+    function point(e) {
+      if (e.touches && e.touches.length) return e.touches[0];
+      if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0];
+      return e;
+    }
     function setBandFromY(band, clientY) {
       var rect = band.getBoundingClientRect(), px = (clientY - rect.top) / rect.height * 63 - 5.5;
       var v = Math.round((1 - clamp(px / 51, 0, 1)) * 100), idx = parseInt(band.getAttribute('data-band'), 10);
@@ -633,22 +877,74 @@
       renderEq();
       renderMarquee(Date.now());
     }
-    function dragStart(e) {
+    function bandStart(e) {
       drag = this;
       focusWindow(this);
-      setBandFromY(drag, pointY(e));
+      setBandFromY(drag, point(e).clientY);
       if (e.preventDefault) e.preventDefault();
     }
-    function dragMove(e) { if (!drag) return; setBandFromY(drag, pointY(e)); if (e.preventDefault) e.preventDefault(); }
-    function dragEnd() { if (drag) { drag = null; save(); } }
-    for (i = 0; i < bands.length; i++) {
-      bands[i].addEventListener('touchstart', dragStart, false);
-      bands[i].addEventListener('mousedown', dragStart, false);
+    // Windows are dragged by their frame (the wa-drag elements), as in Webamp; the main window drags the
+    // windows docked to it along.
+    function windowStart(e) {
+      var target = e.target;
+      if (drag || !target || !hasClass(target, 'wa-drag') || (e.button && e.button !== 0)) return;
+      var w = target;
+      while (w && w !== root && !(w.getAttribute && w.getAttribute('data-window'))) w = w.parentNode;
+      if (!w || w === root) return;
+      var name = w.getAttribute('data-window'), boxes = [], start = null, moving, stationary = [], k;
+      closeMenu();
+      focusWindow(w);
+      for (k = 0; k < WINDOW_NAMES.length; k++) {
+        if (!visible(WINDOW_NAMES[k])) continue;
+        boxes.push(box(WINDOW_NAMES[k]));
+        if (WINDOW_NAMES[k] === name) start = boxes[boxes.length - 1];
+      }
+      moving = name === 'main' ? connectedWindows(boxes, start) : [start];
+      for (k = 0; k < boxes.length; k++) if (moving.indexOf(boxes[k]) === -1) stationary.push(boxes[k]);
+      var p = point(e);
+      windowDrag = { moving: moving, stationary: stationary, x: p.clientX, y: p.clientY, moved: false };
+      if (e.preventDefault) e.preventDefault();
     }
-    doc.addEventListener('touchmove', dragMove, false);
-    doc.addEventListener('mousemove', dragMove, false);
-    doc.addEventListener('touchend', dragEnd, false);
-    doc.addEventListener('mouseup', dragEnd, false);
+    function pointerMove(e) {
+      if (drag) { setBandFromY(drag, point(e).clientY); if (e.preventDefault) e.preventDefault(); return; }
+      if (!windowDrag) return;
+      var p = point(e), proposed = { x: (p.clientX - windowDrag.x) / view.scale, y: (p.clientY - windowDrag.y) / view.scale };
+      var off = dragOffset(windowDrag.moving, windowDrag.stationary, proposed, view.width, view.height);
+      // Unlike desktop Webamp, keep the dragged windows fully on screen: a window lost off the edge of a
+      // tablet cannot be grabbed back.
+      var bb = boundingBox(windowDrag.moving);
+      off.x = Math.round(clamp(off.x, -bb.x, view.width - bb.x - bb.width));
+      off.y = Math.round(clamp(off.y, -bb.y, view.height - bb.y - bb.height));
+      for (var k = 0; k < windowDrag.moving.length; k++) {
+        var m = windowDrag.moving[k];
+        pos[m.key] = { x: m.x + off.x, y: m.y + off.y };
+        placeWindow(m.key);
+      }
+      windowDrag.moved = true;
+      if (e.preventDefault) e.preventDefault();
+    }
+    function pointerEnd() {
+      if (drag) { drag = null; save(); }
+      if (windowDrag) {
+        if (windowDrag.moved) {
+          settings.positions = {};
+          for (var k = 0; k < WINDOW_NAMES.length; k++) settings.positions[WINDOW_NAMES[k]] = { x: pos[WINDOW_NAMES[k]].x, y: pos[WINDOW_NAMES[k]].y };
+          save();
+        }
+        windowDrag = null;
+      }
+    }
+    for (i = 0; i < bands.length; i++) {
+      bands[i].addEventListener('touchstart', bandStart, false);
+      bands[i].addEventListener('mousedown', bandStart, false);
+    }
+    root.addEventListener('touchstart', windowStart, false);
+    root.addEventListener('mousedown', windowStart, false);
+    doc.addEventListener('touchmove', pointerMove, false);
+    doc.addEventListener('mousemove', pointerMove, false);
+    doc.addEventListener('touchend', pointerEnd, false);
+    doc.addEventListener('touchcancel', pointerEnd, false);
+    doc.addEventListener('mouseup', pointerEnd, false);
     // Lets :active pressed-button sprites show on iOS.
     root.addEventListener('touchstart', function () {}, false);
     win.addEventListener('resize', function () { if (active) layout(); }, false);
@@ -671,6 +967,8 @@
       },
       hide: function () {
         active = false;
+        closeMenu();
+        pointerEnd();
         stopLoop();
         setClass(root, 'hidden', true);
       },
@@ -692,6 +990,11 @@
     clockDigits: clockDigits,
     marqueeText: marqueeText,
     computeLayout: computeLayout,
+    snapBox: snapBox,
+    snapWithin: snapWithin,
+    connectedWindows: connectedWindows,
+    dragOffset: dragOffset,
+    fitWithin: fitWithin,
     loadSettings: loadSettings,
     EQ_PRESETS: EQ_PRESETS,
     PRESET_NAMES: PRESET_NAMES

@@ -148,3 +148,49 @@ test('OldMilk exposes host-driven rendering and no longer starts its own loop', 
   assert.doesNotMatch(src, /requestAnimationFrame/);
   assert.doesNotMatch(src, /__oldmilk/);
 });
+
+test('windows snap to each other and to the screen edges like Webamp', () => {
+  const main = { x: 100, y: 100, width: 275, height: 116 };
+  assert.deepStrictEqual(W.snapBox({ x: 110, y: 222, width: 275, height: 116 }, main), { x: 100, y: 216 });
+  assert.deepStrictEqual(W.snapBox({ x: 385, y: 105, width: 275, height: 116 }, main), { x: 375, y: 100 });
+  assert.deepStrictEqual(W.snapBox({ x: 600, y: 600, width: 275, height: 116 }, main), { x: undefined, y: undefined });
+  assert.deepStrictEqual(W.snapWithin({ x: 8, y: 590, width: 275, height: 116 }, 1000, 700), { x: 0, y: 584 });
+});
+
+test('dragging the main window brings docked windows along; others move alone', () => {
+  const main = { key: 'main', x: 0, y: 0, width: 275, height: 116 };
+  const eq = { key: 'eq', x: 0, y: 116, width: 275, height: 116 };
+  const md = { key: 'md', x: 275, y: 0, width: 275, height: 232 };
+  const far = { key: 'pl', x: 600, y: 500, width: 275, height: 116 };
+  const group = W.connectedWindows([main, eq, md, far], main).map((b) => b.key).sort();
+  assert.deepStrictEqual(group, ['eq', 'main', 'md']);
+  // A free drag keeps the proposed offset; near another window it snaps flush.
+  assert.deepStrictEqual(W.dragOffset([far], [main], { x: -100, y: -100 }, 2000, 2000), { x: -100, y: -100 });
+  const snapped = W.dragOffset([far], [main], { x: -320, y: -380 }, 2000, 2000);
+  assert.deepStrictEqual({ x: far.x + snapped.x, y: far.y + snapped.y }, { x: 275, y: 116 });
+  const clampedToEdge = W.dragOffset([far], [], { x: 0, y: 190 }, 1000, 800);
+  assert.strictEqual(far.y + clampedToEdge.y, 800 - 116);
+});
+
+test('saved window positions are validated', () => {
+  const store = { getItem: () => JSON.stringify({ positions: { main: { x: 10.4, y: 20 }, eq: { x: 'a', y: 1 } } }) };
+  const s = W.loadSettings(store);
+  assert.deepStrictEqual(s.positions.main, { x: 10, y: 20 });
+  assert.strictEqual(s.positions.eq, undefined);
+  assert.strictEqual(W.loadSettings(null).positions, null);
+});
+
+test('background images are downscaled keeping their aspect ratio', () => {
+  assert.deepStrictEqual(W.fitWithin(4000, 3000, 1024), { width: 1024, height: 768 });
+  assert.deepStrictEqual(W.fitWithin(800, 600, 1024), { width: 800, height: 600 });
+});
+
+test('main menu offers Options, Set background and Exit; no separate exit button', () => {
+  const src = fs.readFileSync(path.join(root, 'winamp.js'), 'utf8');
+  assert.match(src, />Options<ul>/);
+  assert.match(src, /Set background\.\.\.<input type="file" accept="image\/\*"/);
+  assert.match(src, /data-action="exit">Exit</);
+  assert.doesNotMatch(src, /wa-exit/);
+  const vercel = fs.readFileSync(path.join(root, 'vercel.json'), 'utf8');
+  assert.match(vercel, /img-src 'self' data:/);
+});
