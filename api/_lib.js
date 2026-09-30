@@ -28,6 +28,86 @@ function setCookie(res, name, value, maxAge) {
 function clearCookie(res, name) { setCookie(res, name, '', 0); }
 function clientIp(req) { var forwarded = req.headers['x-forwarded-for']; return (forwarded ? forwarded.split(',')[0] : (req.headers['x-real-ip'] || 'unknown')).trim(); }
 function rateLimit(req, bucket, limit, seconds, callback) { kv.kvIncr('rate:' + bucket + ':' + clientIp(req), seconds, function (err, count) { if (err) return callback(err); count = parseInt(count, 10); callback(null, count > limit, count); }); }
+// Best-effort per-instance limiter for hot paths so normal polling never touches Redis.
+var memoryBuckets = {}, memoryPruneAt = 0;
+function memoryRateLimit(req, bucket, limit, seconds) {
+  var now = Date.now(), key = bucket + ':' + clientIp(req), entry = memoryBuckets[key];
+  if (now > memoryPruneAt) {
+    for (var k in memoryBuckets) if (memoryBuckets[k].reset <= now) delete memoryBuckets[k];
+    memoryPruneAt = now + 60000;
+    entry = memoryBuckets[key];
+  }
+  if (!entry || entry.reset <= now) entry = memoryBuckets[key] = { count: 0, reset: now + seconds * 1000 };
+  entry.count++;
+  return entry.count > limit;
+}
+var SESSION_COOKIE = 'spotify_session', SESSION_MAX_AGE = 2592000;
+function sessionKey() {
+  var secret = process.env.SESSION_SECRET || process.env.SPOTIFY_CLIENT_SECRET;
+  if (!secret) return null;
+  return crypto.createHash('sha256').update('ipad2spotify-session-v1:' + secret).digest();
+}
+function sealSession(session) {
+  var key = sessionKey();
+  if (!key) return null;
+  var iv = crypto.randomBytes(12), cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  var data = Buffer.concat([cipher.update(JSON.stringify(session.user_id ? { refresh_token: session.refresh_token, user_id: session.user_id } : { refresh_token: session.refresh_token }), 'utf8'), cipher.final()]);
+  return 'v1.' + base64Url(Buffer.concat([iv, cipher.getAuthTag(), data]));
+}
+function openSession(value) {
+  var key = sessionKey();
+  if (!key || typeof value !== 'string' || value.indexOf('v1.') !== 0) return null;
+  try {
+    var raw = Buffer.from(value.slice(3).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+    if (raw.length < 29) return null;
+    var decipher = crypto.createDecipheriv('aes-256-gcm', key, raw.subarray(0, 12));
+    decipher.setAuthTag(raw.subarray(12, 28));
+    var session = JSON.parse(Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString('utf8'));
+    return session && typeof session.refresh_token === 'string' ? session : null;
+  } catch (e) { return null; }
+}
+function setSession(res, session) {
+  var sealed = sealSession(session);
+  if (!sealed) return false;
+  setCookie(res, SESSION_COOKIE, sealed, SESSION_MAX_AGE);
+  return true;
+}
+function isLegacySessionId(value) { return typeof value === 'string' && /^[A-Za-z0-9_-]{20,64}$/.test(value); }
+// Reads the session from the encrypted cookie without Redis. Sessions created before the
+// cookie migration are looked up in Redis once, re-issued as encrypted cookies, then left to expire.
+function getSession(req, res, callback) {
+  var value = cookie(req, SESSION_COOKIE);
+  if (!value) return callback(null, null);
+  var session = openSession(value);
+  if (session) return callback(null, session);
+  if (!isLegacySessionId(value)) return callback(null, null);
+  // A genuine legacy cookie migrates on its first lookup; cap forged ones so they can't drive Redis traffic.
+  if (module.exports.memoryRateLimit(req, 'legacy-session', 5, 3600)) return callback(null, null);
+  module.exports.kvGet('session:' + value, function (err, legacy) {
+    if (err) return callback(err);
+    if (!legacy || !legacy.refresh_token) return callback(null, null);
+    // The legacy key is left to expire on its own so pre-migration badges can still resolve it.
+    module.exports.setSession(res, legacy);
+    callback(null, legacy);
+  });
+}
+// Spotify may rotate refresh tokens; keep the cookie in sync when it does.
+function updateRefreshToken(res, session, token) {
+  if (token && token.refresh_token && token.refresh_token !== session.refresh_token) {
+    session.refresh_token = token.refresh_token;
+    module.exports.setSession(res, session);
+  }
+}
+// Spotify user IDs are numeric, base62, or legacy usernames; they double as the stable badge key.
+function badgeId(userId) {
+  var id = String(userId || '').toLowerCase();
+  return /^[a-z0-9._-]{1,64}$/.test(id) ? id : null;
+}
+function spotifyUserId(accessToken, callback) {
+  module.exports.request('https://api.spotify.com/v1/me', { headers: { Authorization: 'Bearer ' + accessToken }, timeout: 10000 }, function (err, status, data) {
+    callback(!err && status === 200 && data && badgeId(data.id) ? data.id : null);
+  });
+}
 function base64Url(value) { return value.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'); }
 function random(size) { return base64Url(crypto.randomBytes(size)); }
 // Fixed-length, human-typeable code: 32-char alphabet (no 0/O, 1/I/L confusion) maps
@@ -78,4 +158,4 @@ function requestBuffer(url, options, callback) {
   req.setTimeout(120000, function () { req.destroy(new Error('Upstream request timed out.')); });
   req.end();
 }
-module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, random: random, pairingCode: pairingCode, redirect: redirect, config: config, origin: origin, request: request, requestBuffer: requestBuffer, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
+module.exports = { json: json, readBody: readBody, cookie: cookie, setCookie: setCookie, clearCookie: clearCookie, clientIp: clientIp, rateLimit: rateLimit, memoryRateLimit: memoryRateLimit, sealSession: sealSession, openSession: openSession, setSession: setSession, getSession: getSession, isLegacySessionId: isLegacySessionId, updateRefreshToken: updateRefreshToken, badgeId: badgeId, spotifyUserId: spotifyUserId, random: random, pairingCode: pairingCode, redirect: redirect, config: config, origin: origin, request: request, requestBuffer: requestBuffer, spotifyToken: spotifyToken, kvSet: kv.kvSet, kvGet: kv.kvGet, kvDel: kv.kvDel };
