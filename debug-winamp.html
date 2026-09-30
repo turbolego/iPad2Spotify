@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Winamp Debug">
+  <title>Winamp Mode Debug</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar"><h1>♫ Winamp Debug Mode</h1><span id="status">Debug Mode Active</span></header>
+    
+    <!-- Hidden winamp player - pre-loaded for debug display -->
+    <section id="winamp-player" class="winamp" aria-label="Winamp mode player">
+      <!-- Title bar with controls -->
+      <div id="winamp-main" class="wmodule main" data-mod="main" style="left:20px;top:40px">
+        <div class="wtitle">
+          <!-- Settings/Option button - top-left corner -->
+          <button id="option" class="wtitle-menu" aria-label="Settings"></button>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-text">WINAMP</span>
+          <span class="wtitle-accent" aria-hidden="true"></span>
+          <span class="wtitle-btns">
+            <button class="wbtn-min" data-mod="main" aria-label="Shade"></button>
+            <button class="wbtn-close" data-mod="main" aria-label="Close window"></button>
+          </span>
+        </div>
+        
+        <!-- Settings menu dropdown -->
+        <div id="winamp-settings-menu" class="winamp-menu hidden" aria-label="Settings menu">
+          <div class="menu-item" data-action="exit">Exit Winamp Mode</div>
+        </div>
+        
+        <!-- Window contents -->
+        <div class="wcontents main-contents">
+          <div class="main-lcd">
+            <!-- Vis bar -->
+            <div class="lcd-vis" id="winamp-osc" aria-hidden="true">
+              <span class="winamp-obar winamp-o1"></span>
+              <span class="winamp-obar winamp-o2"></span>
+              <span class="winamp-obar winamp-o3"></span>
+              <span class="winamp-obar winamp-o4"></span>
+              <span class="winamp-obar winamp-o5"></span>
+              <span class="winamp-obar winamp-o6"></span>
+              <span class="winamp-obar winamp-o7"></span>
+              <span class="winamp-obar winamp-o8"></span>
+              <span class="winamp-obar winamp-o9"></span>
+              <span class="winamp-obar winamp-o10"></span>
+              <span class="winamp-obar winamp-o11"></span>
+              <span class="winamp-obar winamp-o12"></span>
+              <span class="winamp-obar winamp-o13"></span>
+              <span class="winamp-obar winamp-o14"></span>
+              <span class="winamp-obar winamp-o15"></span>
+              <span class="winamp-obar winamp-o16"></span>
+            </div>
+            <!-- Track marquee -->
+            <div class="lcd-track">
+              <span id="winamp-track" class="lcd-track-text">Test Song - Artist Name</span>
+            </div>
+          </div>
+          
+          <div class="lcd-row2">
+            <!-- Time display -->
+            <div class="lcd-readout">
+              <span id="winamp-elapsed">0:50</span> / <span id="winamp-duration">3:20</span>
+            </div>
+            <!-- Bitrate display -->
+            <div class="lcd-readout" style="margin-left:16px">
+              <span id="winamp-kbps">128</span> kbps
+            </div>
+          </div>
+          
+          <div class="lcd-row3" style="margin-top:1px">
+            <!-- Progress bar -->
+            <div id="winamp-fill-wrap" class="winamp-fill-wrap">
+              <div id="winamp-fill" class="winamp-fill" style="width: 25%"></div>
+            </div>
+            <!-- Volume -->
+            <div id="winamp-volbar" class="winamp-volume" style="position:absolute;right:12px">
+              <span class="winamp-vol-label">VOL</span>
+              <div id="winamp-vol-fill" class="winamp-vol-fill" style="width:70%"></div>
+              <div id="winamp-vol-knob" class="winamp-vol-knob">●</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Transport controls -->
+        <div class="main-controls" style="position:absolute;bottom:12px;left:12px;right:12px;display:flex;justify-content:center;gap:6px">
+          <div class="transport-row">
+            <button id="winamp-prev" class="winamp-btn winamp-prev" aria-label="Previous track">◄◀</button>
+            <button id="winamp-play" class="winamp-btn winamp-play" aria-label="Play">▶</button>
+            <button id="winamp-pause" class="winamp-btn winamp-pause" aria-label="Pause">❚❚</button>
+            <button id="winamp-stop" class="winamp-btn winamp-stop" aria-label="Stop">■</button>
+            <button id="winamp-next" class="winamp-btn winamp-next" aria-label="Next track">▶▶</button>
+            <button id="winamp-eject" class="winamp-btn winamp-eject" aria-label="Eject">⏏</button>
+          </div>
+          <div class="secondary-row" style="margin-top:4px">
+            <button id="winamp-shuffle" class="winamp-btn winamp-shuffle" aria-label="Shuffle">SHUFFLE</button>
+            <button id="winamp-repeat" class="winamp-btn winamp-repeat" aria-label="Repeat">↻</button>
+            <span class="clutch-icon" aria-hidden="true"></span>
+          </div>
+        </div>
+        
+        <!-- Exit button (visible on hover) -->
+        <button id="winamp-exit" class="winamp-exit-btn" aria-label="Exit Winamp mode">Exit Winamp Mode</button>
+      </div>
+    </section>
+  </main>
+  
+  <script>
+    // Debug mode script to show the player and enable testing
+    document.addEventListener('DOMContentLoaded', function() {
+      var player = document.getElementById('winamp-player');
+      if (player) {
+        player.className = 'winamp';
+      }
+      
+      // Settings button (option button) click handler
+      var settingsBtn = document.getElementById('option');
+      var settingsMenu = document.getElementById('winamp-settings-menu');
+      
+      if (settingsBtn) {
+        settingsBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          if (settingsMenu) {
+            var isHidden = settingsMenu.className.indexOf('hidden') !== -1;
+            settingsMenu.className = isHidden ? 'winamp-menu' : 'winamp-menu hidden';
+          }
+        });
+      }
+      
+      // Close menu when clicking outside
+      document.addEventListener('click', function() {
+        if (settingsMenu && settingsMenu.className.indexOf('hidden') === -1) {
+          settingsMenu.className = 'winamp-menu hidden';
+        }
+      });
+      
+      // Exit button
+      var exitBtn = document.getElementById('winamp-exit');
+      if (exitBtn) {
+        exitBtn.addEventListener('click', function() {
+          console.log('Exit button clicked - would call setWinamp(false)');
+        });
+      }
+      
+      // Menu item handler
+      if (settingsMenu) {
+        settingsMenu.addEventListener('click', function(e) {
+          var target = e.target;
+          if (target && target.className && String(target.className).indexOf('menu-item') !== -1) {
+            var action = target.getAttribute('data-action');
+            if (action === 'exit') {
+              console.log('Exit from menu clicked - would call setWinamp(false)');
+              settingsMenu.className = 'winamp-menu hidden';
+            }
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
