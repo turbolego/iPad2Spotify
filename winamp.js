@@ -709,6 +709,8 @@
       for (var n = 0; n < names.length; n++) setClass(el[names[n]], 'wa-focused', el[names[n]] === target);
       target.style.zIndex = ++zTop;
     }
+    // A window that is opened comes to the front, so it can't reappear hidden behind another one.
+    function raise(name) { if (visible(name)) focusWindow(el[name]); }
     function send(action) { if (opts.onCommand) opts.onCommand(action); }
     function handle(action) {
       switch (action) {
@@ -719,10 +721,10 @@
         case 'stop': optimistic('paused'); send('pause'); break;
         case 'eject': if (opts.onEject) opts.onEject(); break;
         case 'exit': if (opts.onExit) opts.onExit(); break;
-        case 'toggle-eq': settings.open.eq = !settings.open.eq; save(); renderStatus(); layout(); break;
-        case 'toggle-pl': settings.open.pl = !settings.open.pl; save(); renderStatus(); layout(); renderPlaylist(); break;
+        case 'toggle-eq': settings.open.eq = !settings.open.eq; save(); renderStatus(); layout(); raise('eq'); break;
+        case 'toggle-pl': settings.open.pl = !settings.open.pl; save(); renderStatus(); layout(); renderPlaylist(); raise('pl'); break;
         case 'toggle-md':
-          settings.open.md = !settings.open.md; save(); renderStatus(); layout();
+          settings.open.md = !settings.open.md; save(); renderStatus(); layout(); raise('md');
           if (!settings.open.md && milk) milk.clear();
           break;
         case 'toggle-time': settings.remaining = !settings.remaining; lastClockKey = ''; save(); renderStatus(); renderClock(Date.now()); break;
