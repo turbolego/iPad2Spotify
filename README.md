@@ -18,7 +18,7 @@ Since we need to use Vercel anyways, the webapp creates a shortcode for a "badge
 <img width="420" height="420" alt="4499" src="https://github.com/user-attachments/assets/9d934f26-f5d6-4f58-95dc-df640e9c3e9a" />
 
 Credits and notices:
-- Skin bitmaps: the Winamp 2.91 base skin (`vendor/winamp-skin/base-2.91`), as distributed with [Webamp](https://github.com/captbaritone/webamp) (MIT) and winamp2-js by Jordan Eldredge. Sprite coordinates follow Webamp's skin sprite map. `scripts/build-winamp-skin.py` converts the BMPs into the PNG sheets the page uses.
+- Skin bitmaps: the Winamp 2.91 base skin (`vendor/winamp-skin/base-2.91`), as distributed with [Webamp](https://github.com/captbaritone/webamp) (MIT) by Jordan Eldredge and [winamp2-js](https://github.com/rvpanoz/winamp2-js). Sprite coordinates follow Webamp's skin sprite map. `scripts/build-winamp-skin.py` converts the BMPs into the PNG sheets the page uses.
 - Milkdrop window: [OldMilk](https://www.npmjs.com/package/@turbolego/oldmilk), vendored in `vendor/oldmilk` with small local changes.
 - Winamp is a trademark of Winamp SA / Nullsoft. This project is not affiliated with Winamp.
 
