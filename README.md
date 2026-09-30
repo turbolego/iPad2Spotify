@@ -6,7 +6,7 @@ The frontend uses old-browser-compatible ES5 JavaScript and `XMLHttpRequest`. Sp
 
 Since we need to use Vercel anyways, the webapp creates a shortcode for a "badge" you can add to your github profile or anywhere displaying the song played last:
 
-[![Last played on Spotify](https://ipad2spotify.vercel.app/api/badge/pszakw4nbafwexn.svg)](https://ipad2spotify.vercel.app/)
+[![Last played on Spotify](https://ipad2spotify.vercel.app/api/badge/1170009226.svg)](https://ipad2spotify.vercel.app/)
 
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/cb0c0bec-ef17-40f6-b6ff-782786272c0a" />
 
