@@ -11,11 +11,15 @@ module.exports = function (req, res) {
     lib.kvGet('pair:' + code, function (err, record) {
       if (err || !record || record.expires < new Date().getTime()) return lib.json(res, 401, { error: 'Code is invalid or expired.' });
       lib.kvDel('pair:' + code, function () {
-        var sid = lib.random(24);
-        lib.kvSet('session:' + sid, { refresh_token: record.refresh_token }, 2592000, function (saveErr) {
-          if (saveErr) return lib.json(res, 503, { error: 'Session storage failed.' });
-          lib.setCookie(res, 'spotify_session', sid, 2592000, !lib.isLocalHost(req));
-          lib.json(res, 200, { connected: true });
+        var session = { refresh_token: record.refresh_token };
+        if (record.user_id) session.user_id = record.user_id;
+        if (!lib.setSession(res, session, !lib.isLocalHost(req))) return lib.json(res, 500, { error: 'Session encryption is not configured.' });
+        // Keep an existing account badge working after re-login so its static URL never needs replacing.
+        var id = lib.badgeId(record.user_id);
+        if (!id) return lib.json(res, 200, { connected: true });
+        lib.kvGet('badge:' + id, function (badgeErr, badge) {
+          if (badgeErr || !badge) return lib.json(res, 200, { connected: true });
+          lib.kvSet('badge:' + id, { refresh_token: record.refresh_token, user_id: record.user_id }, 31536000, function () { lib.json(res, 200, { connected: true }); });
         });
       });
     });

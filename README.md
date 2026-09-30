@@ -41,6 +41,18 @@ An iPad 2 Home Screen web app runs in fullscreen mode, but interactive Spotify O
 
 The pairing code expires after ten minutes and is deleted after it is claimed. The Home Screen app does not need to open Spotify login again unless its session expires.
 
+## Adaptive playback updates
+
+The iPad starts the currently-playing request; Vercel does not independently poll Spotify on a timer. Vercel is needed because it holds the Spotify Client Secret, refreshes access tokens, and performs the authorized Spotify request on behalf of the browser.
+
+Playback polling does not use Redis at all. The paired session (the Spotify refresh token) is stored in an encrypted, `HttpOnly` cookie that only the Vercel Functions can decrypt, so each check is simply iPad → Vercel → Spotify. Redis is only used for the short-lived pairing code, badge records, and rate limits on the login/pairing endpoints (see [Redis usage](#redis-usage)).
+
+To reduce Vercel Function invocations, the Home Screen app uses adaptive polling. When nothing is playing or playback is paused, it checks approximately every 60 seconds. During playback it checks approximately every 30 seconds, with a shorter check near the end of a track so the next song can be detected. When the Home Screen app is hidden or backgrounded, polling stops completely and resumes immediately when the page becomes visible again.
+
+The player includes a **Refresh now** button for an immediate check. When the player says **Nothing playing**, this may mean that Spotify has no active controllable playback, or simply that the first optimized background check has not occurred yet. Automatic checks can take up to 60 seconds; select **Refresh now** after starting Spotify on another device rather than waiting.
+
+During a request, the button changes to **Checking…** and displays a small loading animation. The animation uses ordinary CSS and remains compatible with Safari on iOS 9.3.6.
+
 ## Fork and deploy your own copy
 
 Alternative 1: Use this button:
@@ -95,7 +107,7 @@ https://your-project.vercel.app
 
 ### 4. Create the Redis/KV storage
 
-The pairing flow needs a small shared database because Spotify login happens in normal Safari while the pairing code is entered in the separate fullscreen Home Screen app.
+The pairing flow needs a small shared database because Spotify login happens in normal Safari while the pairing code is entered in the separate fullscreen Home Screen app. Redis usage is small; see [Redis usage](#redis-usage).
 
 In the Vercel project:
 
@@ -112,7 +124,7 @@ KV_REST_API_URL
 KV_REST_API_TOKEN
 ```
 
-The current implementation uses the normal read/write token. Do not use `KV_REST_API_READ_ONLY_TOKEN` for `KV_REST_API_TOKEN`, because the application must create, read, and delete pairing/session/badge records.
+The current implementation uses the normal read/write token. Do not use `KV_REST_API_READ_ONLY_TOKEN` for `KV_REST_API_TOKEN`, because the application must create, read, and delete pairing and badge records.
 
 If the integration provides equivalent variables with different names, add aliases in Vercel:
 
@@ -143,12 +155,15 @@ KV_REST_API_TOKEN       = supplied by Upstash Redis
 Optionally add:
 
 ```text
-APP_ORIGIN = https://your-project.vercel.app
+APP_ORIGIN     = https://your-project.vercel.app
+SESSION_SECRET = a long random string, e.g. output of `openssl rand -base64 32`
 ```
+
+`SESSION_SECRET` is the key used to encrypt the session cookie. If it is omitted, a key is derived from `SPOTIFY_CLIENT_SECRET`. Changing either value logs out every paired device, which must then pair again.
 
 `APP_ORIGIN` is useful when using a custom domain. Do not include a trailing slash. If it is omitted, the application derives the origin from the incoming request host.
 
-`SPOTIFY_CLIENT_SECRET` and the Redis token are server-only variables. Do not prefix them with `NEXT_PUBLIC_`.
+`SPOTIFY_CLIENT_SECRET`, `SESSION_SECRET`, and the Redis token are server-only variables. Do not prefix them with `NEXT_PUBLIC_`.
 
 Vercel documentation: [Environment Variables](https://vercel.com/docs/environment-variables)
 
@@ -186,6 +201,7 @@ Open the Vercel production URL in normal Safari or another browser and select **
 - `user-read-currently-playing`
 - `user-read-playback-state`
 - `user-modify-playback-state`
+- `user-read-recently-played` (used by the badge when nothing is currently playing)
 
 After authorization, the callback page displays a pairing code. Open the same Vercel URL in Safari on the iPad, select **Add to Home Screen**, and open the new icon. In the fullscreen app select **Enter pairing code**, enter the code, and confirm.
 
@@ -193,19 +209,35 @@ You can complete the login on a phone or computer, then enter the resulting code
 
 ## GitHub README last-played badge
 
-After pairing the app and observing at least one playing track, select **Create GitHub README Badge** in the regular player. The app creates a random public badge key and displays Markdown similar to:
+After pairing the app, select **Create GitHub README Badge** in the regular player. The badge URL is based on your Spotify account ID, so it is the same every time. The app displays Markdown similar to:
 
 ```markdown
-[![Last played on Spotify](https://your-project.vercel.app/api/badge/abc123.svg)](https://your-project.vercel.app/)
+[![Last played on Spotify](https://your-project.vercel.app/api/badge/<your-spotify-user-id>.svg)](https://your-project.vercel.app/)
 ```
 
-Copy that Markdown into a GitHub profile `README.md`. The SVG displays the last track observed by the paired app, including album artwork, song title, and artist. For each badge request, the server uses the stored track ID with Spotify’s `GET /v1/tracks/{id}` endpoint and selects `album.images[0].url`, the highest-resolution artwork returned by Spotify. It then downloads and embeds the artwork inside the SVG so GitHub does not need to load a remote image nested inside the badge. The badge is a public image URL: anyone who can see the README source can request it.
+You only need to add this to your GitHub profile once. When you log in to Spotify and pair again later, the existing badge is automatically updated with the new authorization, so the URL keeps working. Selecting the button again simply shows the same URL. A badge only exists for accounts that have logged in and selected **Create GitHub README Badge**; any other account ID returns 404. The Spotify account ID (shown in your Spotify profile link, `open.spotify.com/user/<id>`) is used rather than your email address, which is never requested or exposed.
 
-The badge lifecycle is: the paired app checks `/api/spotify/currently-playing` on an adaptive schedule; the server refreshes the Spotify access token from the server-side session; the latest track ID and basic metadata are saved in Redis; **Create GitHub README Badge** creates a random badge key mapped to that session; and GitHub requests `/api/badge/<key>.svg` when rendering the profile README. The badge endpoint looks up the stored track ID, asks Spotify for the current track object and album image, embeds the image, and returns an SVG. The badge is cached for a short period, so GitHub may show an older song for several minutes.
+Copy that Markdown into a GitHub profile `README.md`. The SVG displays the track currently playing on the account, or the most recently played track when nothing is playing, including album artwork, song title, and artist. For each badge request, the server asks Spotify directly (`GET /v1/me/player/currently-playing`, falling back to `GET /v1/me/player/recently-played?limit=1`) and selects `album.images[0].url`, the highest-resolution artwork returned by Spotify. It then downloads and embeds the artwork inside the SVG so GitHub does not need to load a remote image nested inside the badge. The badge is a public image URL: anyone who can see the README source can request it.
 
-The badge is updated when the app successfully checks Spotify. While playing, checks normally occur about every 15 seconds, with a shorter check near the end of a track; when idle or paused, checks occur about every 30 seconds. It does not independently monitor Spotify while the iPad app is closed. GitHub and image proxies may cache the image, so changes can appear with a delay of up to several minutes.
+The badge lifecycle is: **Create GitHub README Badge** stores a `badge:<spotify-user-id>` record in Redis together with the Spotify refresh token from the paired session (pairing again updates that record); GitHub requests `/api/badge/<key>.svg` when rendering the profile README; the badge endpoint reads that one Redis record, refreshes a Spotify access token, looks up the current or most recent track, embeds the album image, and returns an SVG. The response is cached by Vercel's CDN for five minutes, so each badge costs at most one Redis read per five minutes regardless of how often it is viewed.
 
-The badge key is a viewing key, not a playback-control credential. It does not expose Spotify access tokens, refresh tokens, Redis credentials, or the private session cookie. The badge record expires after one year; create a new badge from the app if it expires.
+The badge works independently of the iPad app: it reflects Spotify directly, even while the app is closed. GitHub and image proxies may cache the image, so changes can appear with a delay of several minutes. Badges created before the recently-played scope was added fall back to showing only the currently playing track until you log in to Spotify again and create a new badge.
+
+The badge URL is a viewing URL, not a playback-control credential. Because it is based on your Spotify account ID, anyone who knows or guesses that ID can view your badge once it has been created. It does not expose Spotify access tokens, refresh tokens, Redis credentials, or the private session cookie. The badge record expires one year after the last login or badge creation. Badges created before account-based URLs were introduced (random keys) keep working until they expire. Disconnecting the iPad does not disable an existing badge; to stop a badge, revoke this app in your Spotify account settings (or delete the `badge:<key>` record in Redis).
+
+## Redis usage
+
+Redis (Upstash) is only used where state must be shared between separate browsers or requests:
+
+| Key / use | When | Commands |
+| --- | --- | --- |
+| `pair:<code>` | Spotify login → pairing on the iPad | ~3 per login (SET, GET, DEL) plus 1–2 to refresh an existing badge, expires after 10 minutes |
+| `rate:<bucket>:<ip>` | login, OAuth callback, pairing, badge creation | 1–2 per request on those rare endpoints |
+| `badge:<spotify-user-id>` | creating and rendering a badge | 1 SET on creation, at most 1 GET per badge per 5 minutes |
+
+Playback polling, playback commands, and searches use **zero** Redis commands. An always-on iPad therefore no longer consumes a meaningful share of the Upstash free tier (500,000 commands/month); a badge viewed constantly costs at most about 9,000 commands/month.
+
+Sessions created by older versions (a random ID stored in Redis as `session:<id>`) are transparently converted to encrypted cookies on the next request, so existing paired iPads keep working. Existing badges are likewise upgraded on their first render; the old `session:` and `last:` keys expire on their own.
 
 ## Features
 
@@ -248,22 +280,23 @@ Playback controls generally require a Spotify Premium account and an active cont
 - `/api/auth/login` — starts Spotify authorization
 - `/api/auth/callback` — exchanges the authorization code and creates a pairing code
 - `/api/auth/pair` — claims a one-time pairing code
-- `/api/auth/logout` — deletes the current server-side session
-- `/api/spotify/currently-playing` — returns playback state and stores the latest observed track
+- `/api/auth/logout` — clears the session cookie
+- `/api/spotify/currently-playing` — returns playback state (no Redis access)
 - `/api/spotify/command` — allowlisted play, pause, next, previous, and play_artist (artist radio) commands
 - `/api/spotify/search-artist` — searches Spotify for artists by name
-- `/api/badge/create` — creates an authenticated public badge key
+- `/api/spotify/search-playlist` — searches Spotify for playlists without using the session KV/Redis helper
+- `/api/badge/create` — creates or refreshes the account's public badge (`/api/badge/<spotify-user-id>.svg`)
 - `/api/badge/<key>.svg` — returns the public GitHub-compatible SVG card
 
 ## Public-service notice and hardening
 
 This is an independent hobby project and is **not operated, sponsored, endorsed, or maintained by Spotify**. Spotify is a trademark of Spotify AB. This project uses Spotify’s public Web API under the account holder’s own authorization and is not an official Spotify client.
 
-If you deploy this repository publicly, visitors can use your Vercel deployment and shared Spotify Developer application. They may consume Vercel Function invocations, Redis operations, and Spotify API quota. The included API applies lightweight Redis-backed per-IP limits to login starts, OAuth callbacks, pairing attempts, playback polling, playback commands, badge creation, and badge requests. These limits reduce casual abuse but are not a complete DDoS or identity system; monitor your Vercel and Redis usage and disable or protect the deployment if it is abused.
+If you deploy this repository publicly, visitors can use your Vercel deployment and shared Spotify Developer application. They may consume Vercel Function invocations, Redis operations, and Spotify API quota. The included API applies lightweight Redis-backed per-IP limits to login starts, OAuth callbacks, pairing attempts, and badge creation, plus best-effort in-memory per-instance limits to playback polling and playback commands (so that polling never costs Redis commands). Badge requests are protected by CDN caching. These limits reduce casual abuse but are not a complete DDoS or identity system; monitor your Vercel and Redis usage and disable or protect the deployment if it is abused.
 
-The **Disconnect** button calls `/api/auth/logout`, deletes the active server-side session where possible, and clears the browser cookie. Users should also revoke this app from their Spotify account settings if they want to remove its authorization completely.
+The **Disconnect** button calls `/api/auth/logout` and clears the encrypted session cookie. Users should also revoke this app from their Spotify account settings if they want to remove its authorization completely.
 
-A public badge reveals the selected account’s last observed track metadata and album artwork. Do not create a public badge if that listening information should remain private.
+A public badge reveals the selected account’s current or most recently played track metadata and album artwork. Do not create a public badge if that listening information should remain private.
 
 Before making a repository public, audit the complete Git history for credentials. Environment variables must remain only in Vercel. If a secret has ever been committed, rotate it even if the file was later deleted.
 
@@ -279,7 +312,7 @@ It uses ES5 JavaScript, `XMLHttpRequest`, old Safari-safe markup, and iOS Home S
 
 Vercel cannot force interactive Spotify login to remain inside an iOS 9 standalone Home Screen window. The pairing flow is intentional: login takes place in normal Safari or another browser, and the authenticated session is then transferred to the fullscreen app using a one-time code.
 
-The badge represents the last track observed while the paired app was polling. It is not a continuous Spotify listening-history monitor. GitHub image caching can delay visible updates.
+Adaptive polling and the hidden-page pause can delay visible updates on the iPad; use **Refresh now** when an immediate check is needed. Badge updates can be delayed by up to five minutes of CDN caching plus GitHub image caching.
 
 GitHub Pages alone cannot safely store the Spotify Client Secret or maintain the shared pairing/session state required by this flow.
 
@@ -289,7 +322,7 @@ MIT.
 
 ## Important: shared public deployment versus your own fork
 
-The public URL `https://ipad2spotify.vercel.app/` is a shared deployment operated by the repository owner. It is convenient for trying the app, but it means your Spotify authorization request and OAuth callback pass through that owner’s Vercel Functions. The resulting server-side refresh token is stored in the Redis database connected to that deployment, and playback requests and badge records are also processed there. The Client Secret is not sent to your browser, but the deployment owner controls the server code, environment configuration, logs, storage account, and future updates.
+The public URL `https://ipad2spotify.vercel.app/` is a shared deployment operated by the repository owner. It is convenient for trying the app, but it means your Spotify authorization request and OAuth callback pass through that owner’s Vercel Functions. The resulting refresh token is stored in a cookie encrypted with that deployment's secret (and, if you create a badge, in the Redis database connected to that deployment), and playback requests are processed there. The Client Secret is not sent to your browser, but the deployment owner controls the server code, environment configuration, logs, storage account, and future updates.
 
 **No guarantee is made about the safety or availability of Spotify accounts authorized through the shared deployment.** Do not use the shared URL if you are not comfortable trusting its operator with the server-side handling of your Spotify authorization session. This project is an independent hobby project, not operated by Spotify, and the public deployment may change, be disabled, or be abused by third parties.
 
@@ -297,9 +330,9 @@ For better security and control, fork the repository and deploy your own copy to
 
 - your own Spotify Developer app supplies the Client ID and Client Secret;
 - OAuth callbacks go to your Vercel project rather than the shared deployment;
-- your own Upstash Redis database stores pairing records, sessions, and badge mappings;
+- your own Upstash Redis database stores pairing records and badge mappings;
 - your Spotify refresh tokens remain under your Vercel/Redis account and configuration;
-- you control source-code changes, environment-variable access, logs, domains, rate limits, and deletion of stored sessions;
+- you control source-code changes, environment-variable access, logs, domains, rate limits, and deletion of stored badge records;
 - you can revoke or rotate your own Spotify and Redis credentials without affecting other users.
 
 Self-hosting does not remove all risk: Vercel, Upstash, Spotify, GitHub, and your own configuration remain part of the trust chain. It does, however, remove the repository owner’s shared server and storage from the OAuth path and gives you substantially better control over your credentials and data.

@@ -3,9 +3,8 @@ module.exports = function (req, res) {
   if ((req.method || '').toUpperCase() !== 'GET') return lib.json(res, 405, { error: 'Expected GET but received ' + req.method + '.' });
   var query = require('url').parse(req.url, true).query, q = (query.q || '').trim().slice(0, 100);
   if (!q) return lib.json(res, 400, { error: 'Enter an artist name to search.' });
-  var sid = lib.cookie(req, 'spotify_session');
-  if (!sid) return lib.json(res, 401, { error: 'Pair this fullscreen app first.' });
-  lib.kvGet('session:' + sid, function (err, session) {
+  if (!lib.cookie(req, 'spotify_session')) return lib.json(res, 401, { error: 'Pair this fullscreen app first.' });
+  lib.getSession(req, res, function (err, session) {
     if (err || !session) return lib.json(res, 401, { error: 'Session expired. Pair again.' });
         var cfg = lib.config(req);
         lib.spotifyToken(cfg, 'grant_type=client_credentials', function (tokenErr, tokenStatus, token) {
