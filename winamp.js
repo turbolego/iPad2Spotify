@@ -701,12 +701,13 @@
       isFetchingVisMap = true;
       var xhr = new XMLHttpRequest();
       xhr.open('GET', '/api/vis-map?track_id=' + encodeURIComponent(trackId), true);
+      xhr.timeout = 5000;
       xhr.onload = function() {
         isFetchingVisMap = false;
         if (xhr.status === 200) {
           try {
             var data = JSON.parse(xhr.responseText);
-            if (data.type === 'bpm_grid') {
+            if (data.type === 'bpm_grid' && data.frames && data.frames.length > 0) {
               visMapCache[trackId] = data;
               currentVisMap = data;
             }
@@ -716,6 +717,10 @@
         }
       };
       xhr.onerror = function() {
+        isFetchingVisMap = false;
+        currentVisMap = null;
+      };
+      xhr.ontimeout = function() {
         isFetchingVisMap = false;
         currentVisMap = null;
       };
@@ -729,6 +734,11 @@
         for (var k = 0; k < VIS_BARS; k++) peaks[k] = 0;
         if (milk) milk.loadPreset(PRESET_NAMES[profile.preset]);
         if (settings.eq.auto) applyPreset(profile.autoEq, false);
+        // Clear previous track's map if it's still loading
+        if (isFetchingVisMap) {
+          isFetchingVisMap = false;
+          currentVisMap = null;
+        }
         fetchVisMap(next.trackId);
         var last = history[history.length - 1];
         if (!last || last.trackId !== next.trackId) {

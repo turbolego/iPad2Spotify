@@ -2,19 +2,27 @@
 // Vercel VisMap endpoint (Approach A) – beat-locked timeline from track metadata
 // Generates 50ms interval map using exponential decay on bass/treble to trigger Milkdrop beat detection
 module.exports = async function handler(req, res) {
-  const trackId = req.query && req.query.track_id;
+  const rawTrackId = req.query && req.query.track_id;
 
-  if (!trackId) {
+  if (!rawTrackId) {
     res.statusCode = 400;
     res.setHeader('Content-Type', 'application/json');
     return res.end(JSON.stringify({ error: 'Missing track_id' }));
+  }
+
+  // Validate trackId: alphanumeric + hyphen/underscore only (Spotify IDs are base62)
+  const trackId = String(rawTrackId).replace(/[^a-zA-Z0-9_-]/g, '');
+  if (trackId !== rawTrackId || trackId.length === 0 || trackId.length > 100) {
+    res.statusCode = 400;
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify({ error: 'Invalid track_id format' }));
   }
 
   try {
     let data = { bpm: 120, time_signature: 4, energy: 0.8, key: 5 };
     try {
       const apiKey = process.env.SOUNDSTAT_API_KEY || '';
-      const response = await fetch(`https://api.soundstat.info/track/${trackId}`, {
+      const response = await fetch(`https://api.soundstat.info/track/${encodeURIComponent(trackId)}`, {
         headers: { 'x-api-key': apiKey }
       });
       if (response && response.ok) {
@@ -26,7 +34,7 @@ module.exports = async function handler(req, res) {
 
     const bpm = data.bpm || 120;
     const beats_per_bar = data.time_signature || 4;
-    const energy = data.energy || 0.7;
+    const energy = typeof data.energy === 'number' ? data.energy : 0.7;
     const duration_ms = data.duration_ms || 210000;
 
     const interval_ms = 50;
