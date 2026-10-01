@@ -116,8 +116,15 @@ function random(size) { return base64Url(crypto.randomBytes(size)); }
 // bytes % 32 with zero modulo bias since 256 is an exact multiple of 32.
 var PAIRING_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 function pairingCode(length) {
-  var bytes = crypto.randomBytes(length), out = '';
-  for (var i = 0; i < length; i++) out += PAIRING_ALPHABET[bytes[i] % PAIRING_ALPHABET.length];
+  var alphabet = PAIRING_ALPHABET;
+  var alphabetLen = alphabet.length;
+  var maxValidByte = 256 - (256 % alphabetLen);
+  var out = '';
+  while (out.length < length) {
+    var byte = crypto.randomBytes(1)[0];
+    if (byte >= maxValidByte) continue;
+    out += alphabet[byte % alphabetLen];
+  }
   return out;
 }
 function redirect(res, location) { securityHeaders(res); res.statusCode = 302; res.setHeader('Location', location); res.end(); }
