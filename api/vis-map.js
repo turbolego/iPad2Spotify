@@ -2,6 +2,14 @@
 // Vercel VisMap endpoint (Approach A) – beat-locked timeline from track metadata
 // Generates 50ms interval map using exponential decay on bass/treble to trigger Milkdrop beat detection
 module.exports = async function handler(req, res) {
+  // Lightweight in-memory rate limit to prevent unauthenticated upstream fan-out
+  // (20 req/min per IP – tune as needed)
+  if (typeof memoryRateLimit !== 'undefined' && memoryRateLimit(req, 'vismap', 20, 60)) {
+    res.statusCode = 429;
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify({ error: 'Too many requests. Try again shortly.' }));
+  }
+
   const rawTrackId = req.query && req.query.track_id;
 
   if (!rawTrackId) {
@@ -33,7 +41,11 @@ module.exports = async function handler(req, res) {
       clearTimeout(timeoutId);
       if (response && response.ok) {
         const json = await response.json();
-        if (json && typeof json === 'object') {
+        // Only treat as real metadata if payload contains recognized fields
+        if (json && typeof json === 'object' &&
+            (typeof json.bpm === 'number' || typeof json.time_signature === 'number' ||
+             typeof json.energy === 'number' || typeof json.key === 'number' ||
+             typeof json.duration_ms === 'number')) {
           data = json;
           usedFallback = false;
         }
@@ -113,3 +125,21 @@ module.exports = async function handler(req, res) {
     res.end(JSON.stringify({ type: 'pseudo', error: 'Failed to generate map' }));
   }
 };
+
+// Best-effort per-instance limiter for hot paths so normal traffic never touches Redis.
+var memoryBuckets = {}, memoryPruneAt = 0;
+function memoryRateLimit(req, bucket, limit, seconds) {
+  var now = Date.now(), key = bucket + ':' + clientIp(req), entry = memoryBuckets[key];
+  if (now > memoryPruneAt) {
+    for (var k in memoryBuckets) if (memoryBuckets[k].reset <= now) delete memoryBuckets[k];
+    memoryPruneAt = now + 60000;
+    entry = memoryBuckets[key];
+  }
+  if (!entry || entry.reset <= now) entry = memoryBuckets[key] = { count: 0, reset: now + seconds * 1000 };
+  entry.count++;
+  return entry.count > limit;
+}
+function clientIp(req) {
+  var forwarded = req.headers['x-forwarded-for'];
+  return (forwarded ? forwarded.split(',')[0] : (req.headers['x-real-ip'] || 'unknown')).trim();
+}
