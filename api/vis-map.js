@@ -2,6 +2,12 @@
 // Vercel VisMap endpoint (Approach A) – beat-locked timeline from track metadata
 // Generates 50ms interval map using exponential decay on bass/treble to trigger Milkdrop beat detection
 module.exports = async function handler(req, res) {
+  if ((req.method || '').toUpperCase() !== 'GET') {
+    res.statusCode = 405;
+    res.setHeader('Allow', 'GET');
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(JSON.stringify({ error: 'Expected GET but received ' + req.method + '.' }));
+  }
   // Lightweight in-memory rate limit to prevent unauthenticated upstream fan-out
   // (20 req/min per IP – tune as needed)
   if (typeof memoryRateLimit !== 'undefined' && memoryRateLimit(req, 'vismap', 20, 60)) {
