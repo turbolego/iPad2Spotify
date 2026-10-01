@@ -20,22 +20,43 @@ module.exports = async function handler(req, res) {
 
   try {
     let data = { bpm: 120, time_signature: 4, energy: 0.8, key: 5 };
+    let usedFallback = true;
+
     try {
       const apiKey = process.env.SOUNDSTAT_API_KEY || '';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       const response = await fetch(`https://api.soundstat.info/track/${encodeURIComponent(trackId)}`, {
-        headers: { 'x-api-key': apiKey }
+        headers: { 'x-api-key': apiKey },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (response && response.ok) {
-        data = await response.json();
+        const json = await response.json();
+        if (json && typeof json === 'object') {
+          data = json;
+          usedFallback = false;
+        }
       }
     } catch (_) {
       // fallback to defaults
     }
 
-    const bpm = data.bpm || 120;
-    const beats_per_bar = data.time_signature || 4;
-    const energy = typeof data.energy === 'number' ? data.energy : 0.7;
-    const duration_ms = data.duration_ms || 210000;
+    // Validate and clamp upstream metadata
+    const bpmRaw = Number(data.bpm);
+    const bpm = Number.isFinite(bpmRaw) && bpmRaw >= 40 && bpmRaw <= 250 ? bpmRaw : 120;
+
+    const tsRaw = Number(data.time_signature);
+    const beats_per_bar = Number.isFinite(tsRaw) && tsRaw >= 1 && tsRaw <= 12 ? Math.floor(tsRaw) : 4;
+
+    const energyRaw = Number(data.energy);
+    const energy = typeof energyRaw === 'number' && Number.isFinite(energyRaw) ? Math.max(0, Math.min(1, energyRaw)) : 0.7;
+
+    const durationRaw = Number(data.duration_ms);
+    const duration_ms = Number.isFinite(durationRaw) && durationRaw > 0 && durationRaw <= 20*60*1000 ? durationRaw : 210000; // max 20 min
+
+    const keyRaw = Number(data.key);
+    const keyVal = Number.isFinite(keyRaw) && keyRaw >= 0 && keyRaw <= 11 ? keyRaw : 5;
 
     const interval_ms = 50;
     const beat_interval_ms = 60000 / bpm;
@@ -60,7 +81,7 @@ module.exports = async function handler(req, res) {
         treble = 0.2 + (0.8 * Math.exp(-time_since_beat / 100) * energy);
       }
 
-      const key_mod = 1 + ((data.key || 1) / 12);
+      const key_mod = 1 + (keyVal / 12);
       const mid = 0.3 + (Math.abs(Math.sin((time_ms * bpm / 120000) * Math.PI * key_mod)) * 0.4 * energy);
 
       frames.push([
@@ -72,7 +93,12 @@ module.exports = async function handler(req, res) {
       ]);
     }
 
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    // Cache immutable only when we got real metadata, avoid caching fallback for a year
+    if (usedFallback) {
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
     res.setHeader('Content-Type', 'application/json');
     res.statusCode = 200;
     res.end(JSON.stringify({

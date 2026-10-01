@@ -65,8 +65,11 @@
 
   // VisMap integration for Milkdrop beat-locked visuals (iOS 9.3.5 ES5)
   var visMapCache = {};
+  var visMapCacheOrder = [];
+  var visMapCacheMax = 20; // unbounded cache guard
   var currentVisMap = null;
-  var isFetchingVisMap = false;
+  var currentVisMapTrackId = null;
+  var isFetchingVisMap = {};
   var PRESET_NAMES = ['Prismatic Hourglass Tunnel', 'Prismatic Foldwheel', 'Interleaved Ribbons',
     'Radial Spectrum', 'Stellar Wake', 'Resonant Plasma', 'Spiral Vortex'];
 
@@ -633,7 +636,7 @@
 
       // VisMap integration: use pre-calculated beat-locked bands if available
       var progressMs = Math.round(tSec * 1000);
-      if (currentVisMap && currentVisMap.type === 'bpm_grid') {
+      if (currentVisMap && currentVisMap.type === 'bpm_grid' && currentVisMapTrackId === state.trackId) {
         var interval = currentVisMap.interval_ms;
         var index = Math.floor(progressMs / interval);
         if (index >= currentVisMap.frames.length) index = currentVisMap.frames.length - 1;
@@ -694,22 +697,37 @@
     // ---- state
     function fetchVisMap(trackId) {
       if (visMapCache[trackId]) {
-        currentVisMap = visMapCache[trackId];
+        // Update LRU order
+        var idx = visMapCacheOrder.indexOf(trackId);
+        if (idx >= 0) visMapCacheOrder.splice(idx, 1);
+        visMapCacheOrder.push(trackId);
+        if (currentVisMapTrackId === trackId) {
+          currentVisMap = visMapCache[trackId];
+        }
         return;
       }
-      if (isFetchingVisMap) return;
-      isFetchingVisMap = true;
+      if (isFetchingVisMap[trackId]) return;
+      isFetchingVisMap[trackId] = true;
       var xhr = new XMLHttpRequest();
       xhr.open('GET', '/api/vis-map?track_id=' + encodeURIComponent(trackId), true);
       xhr.timeout = 5000;
       xhr.onload = function() {
-        isFetchingVisMap = false;
+        isFetchingVisMap[trackId] = false;
         if (xhr.status === 200) {
           try {
             var data = JSON.parse(xhr.responseText);
             if (data.type === 'bpm_grid' && data.frames && data.frames.length > 0) {
+              // Enforce cache size limit
+              if (visMapCacheOrder.length >= visMapCacheMax) {
+                var oldest = visMapCacheOrder.shift();
+                delete visMapCache[oldest];
+              }
               visMapCache[trackId] = data;
-              currentVisMap = data;
+              visMapCacheOrder.push(trackId);
+              // Only apply if this is still the current track
+              if (currentVisMapTrackId === trackId) {
+                currentVisMap = data;
+              }
             }
           } catch (e) {
             console.error('Failed to parse VisMap JSON:', e);
@@ -717,12 +735,10 @@
         }
       };
       xhr.onerror = function() {
-        isFetchingVisMap = false;
-        currentVisMap = null;
+        isFetchingVisMap[trackId] = false;
       };
       xhr.ontimeout = function() {
-        isFetchingVisMap = false;
-        currentVisMap = null;
+        isFetchingVisMap[trackId] = false;
       };
       xhr.send();
     }
@@ -734,11 +750,10 @@
         for (var k = 0; k < VIS_BARS; k++) peaks[k] = 0;
         if (milk) milk.loadPreset(PRESET_NAMES[profile.preset]);
         if (settings.eq.auto) applyPreset(profile.autoEq, false);
-        // Clear previous track's map if it's still loading
-        if (isFetchingVisMap) {
-          isFetchingVisMap = false;
-          currentVisMap = null;
-        }
+        // Clear map for previous track and reset current reference
+        currentVisMapTrackId = next.trackId;
+        currentVisMap = null;
+        // Cancel any pending fetch for previous track is implicit via guard
         fetchVisMap(next.trackId);
         var last = history[history.length - 1];
         if (!last || last.trackId !== next.trackId) {
