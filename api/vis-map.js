@@ -40,21 +40,24 @@ module.exports = async function handler(req, res) {
       const apiKey = process.env.SOUNDSTAT_API_KEY || '';
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch(`https://api.soundstat.info/track/${encodeURIComponent(trackId)}`, {
-        headers: { 'x-api-key': apiKey },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      if (response && response.ok) {
-        const json = await response.json();
-        // Only treat as real metadata if payload contains recognized fields
-        if (json && typeof json === 'object' &&
-            (typeof json.bpm === 'number' || typeof json.time_signature === 'number' ||
-             typeof json.energy === 'number' || typeof json.key === 'number' ||
-             typeof json.duration_ms === 'number')) {
-          data = json;
-          usedFallback = false;
+      try {
+        const response = await fetch(`https://api.soundstat.info/track/${encodeURIComponent(trackId)}`, {
+          headers: { 'x-api-key': apiKey },
+          signal: controller.signal
+        });
+        if (response && response.ok) {
+          const json = await response.json();
+          // Only treat as real metadata if payload contains recognized fields
+          if (json && typeof json === 'object' &&
+              (typeof json.bpm === 'number' || typeof json.time_signature === 'number' ||
+               typeof json.energy === 'number' || typeof json.key === 'number' ||
+               typeof json.duration_ms === 'number')) {
+            data = json;
+            usedFallback = false;
+          }
         }
+      } finally {
+        clearTimeout(timeoutId);
       }
     } catch (_) {
       // fallback to defaults
