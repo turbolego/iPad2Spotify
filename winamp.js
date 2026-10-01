@@ -62,6 +62,14 @@
   var WINDOW_W = 275, WINDOW_H = 116, POS_TRACK = 248 - 29, VIS_BARS = 19, MILK_BINS = 48;
   var MARQUEE_STEP_MS = 220, FLASH_MS = 1600, STORAGE_KEY = 'ipad2spotify.winamp';
   var BACKGROUND_KEY = 'ipad2spotify.winamp.background', SNAP_DISTANCE = 15, WINDOW_NAMES = ['main', 'eq', 'pl', 'md'];
+
+  // VisMap integration for Milkdrop beat-locked visuals (iOS 9.3.5 ES5)
+  var visMapCache = {};
+  var visMapCacheOrder = [];
+  var visMapCacheMax = 20; // unbounded cache guard
+  var currentVisMap = null;
+  var currentVisMapTrackId = null;
+  var isFetchingVisMap = {};
   var PRESET_NAMES = ['Prismatic Hourglass Tunnel', 'Prismatic Foldwheel', 'Interleaved Ribbons',
     'Radial Spectrum', 'Stellar Wake', 'Resonant Plasma', 'Spiral Vortex'];
 
@@ -625,6 +633,33 @@
         if (milk) milk.loadPreset(PRESET_NAMES[profile.preset]);
       }
       if (!milk) return;
+
+      // VisMap integration: use pre-calculated beat-locked bands if available
+      var progressMs = Math.round(tSec * 1000);
+      if (currentVisMap && currentVisMap.type === 'bpm_grid' && currentVisMapTrackId === state.trackId) {
+        var interval = currentVisMap.interval_ms;
+        var index = Math.floor(progressMs / interval);
+        if (index >= currentVisMap.frames.length) index = currentVisMap.frames.length - 1;
+        if (index >= 0) {
+          var frame = currentVisMap.frames[index];
+          var bass = frame[1], mid = frame[2], treble = frame[3], isBeat = frame[4];
+          // Expand 4 values to 48 bins: bass→0-15, mid→16-31, treble→32-47, beat injects to low bins
+          for (var b = 0; b < MILK_BINS; b++) {
+            var v = 0;
+            if (b < 16) v = bass;
+            else if (b < 32) v = mid;
+            else v = treble;
+            // Beat impulse on first few bins for kick detection
+            if (isBeat && b < 3) v = Math.min(1, v + 0.6);
+            milkLevels[b] = v;
+          }
+          milk.setBands(milkLevels);
+          milk.render(tSec);
+          return;
+        }
+      }
+
+      // Fallback to deterministic pseudo-spectrum
       spectrum(profile, tSec, state.durationMs / 1000, settings.eq, milkLevels);
       milk.setBands(milkLevels);
       milk.render(tSec);
@@ -660,6 +695,53 @@
     }
 
     // ---- state
+    function fetchVisMap(trackId) {
+      if (visMapCache[trackId]) {
+        // Update LRU order
+        var idx = visMapCacheOrder.indexOf(trackId);
+        if (idx >= 0) visMapCacheOrder.splice(idx, 1);
+        visMapCacheOrder.push(trackId);
+        if (currentVisMapTrackId === trackId) {
+          currentVisMap = visMapCache[trackId];
+        }
+        return;
+      }
+      if (isFetchingVisMap[trackId]) return;
+      isFetchingVisMap[trackId] = true;
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', '/api/vis-map?track_id=' + encodeURIComponent(trackId), true);
+      xhr.timeout = 5000;
+      xhr.onload = function() {
+        isFetchingVisMap[trackId] = false;
+        if (xhr.status === 200) {
+          try {
+            var data = JSON.parse(xhr.responseText);
+            if (data.type === 'bpm_grid' && data.frames && data.frames.length > 0) {
+              // Enforce cache size limit
+              if (visMapCacheOrder.length >= visMapCacheMax) {
+                var oldest = visMapCacheOrder.shift();
+                delete visMapCache[oldest];
+              }
+              visMapCache[trackId] = data;
+              visMapCacheOrder.push(trackId);
+              // Only apply if this is still the current track
+              if (currentVisMapTrackId === trackId) {
+                currentVisMap = data;
+              }
+            }
+          } catch (e) {
+            console.error('Failed to parse VisMap JSON:', e);
+          }
+        }
+      };
+      xhr.onerror = function() {
+        isFetchingVisMap[trackId] = false;
+      };
+      xhr.ontimeout = function() {
+        isFetchingVisMap[trackId] = false;
+      };
+      xhr.send();
+    }
     function setState(next) {
       var changed = next.trackId !== state.trackId;
       state = next;
@@ -668,6 +750,11 @@
         for (var k = 0; k < VIS_BARS; k++) peaks[k] = 0;
         if (milk) milk.loadPreset(PRESET_NAMES[profile.preset]);
         if (settings.eq.auto) applyPreset(profile.autoEq, false);
+        // Clear map for previous track and reset current reference
+        currentVisMapTrackId = next.trackId;
+        currentVisMap = null;
+        // Cancel any pending fetch for previous track is implicit via guard
+        fetchVisMap(next.trackId);
         var last = history[history.length - 1];
         if (!last || last.trackId !== next.trackId) {
           history.push({ trackId: next.trackId, artist: next.artist, title: next.title, durationMs: next.durationMs });
